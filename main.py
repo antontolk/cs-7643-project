@@ -1,5 +1,6 @@
 from app.data_load import load_dataset
 from app.settings import Settings
+from app.tokenizer import tokenizer_by_word
 
 if __name__ == '__main__':
     # Load settings
@@ -16,3 +17,7 @@ if __name__ == '__main__':
 
     print(df_train.head(5))
     print(df_train.dtypes)
+    
+    df_train['Tokens'] = df_train['Utterance'].apply(tokenizer_by_word)
+
+    print(df_train[['Utterance', 'Tokens']].head(5))
