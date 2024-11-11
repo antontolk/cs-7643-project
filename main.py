@@ -3,6 +3,7 @@ from pathlib import Path
 from app.data_load import load_dataset
 from app.tokenizer_bpe import TokenizerBPE
 from app.settings import Settings
+from app.tokenizer import tokenizer_by_word
 
 if __name__ == '__main__':
     # Load settings
@@ -53,6 +54,5 @@ if __name__ == '__main__':
     # print(df_train_y.head(5))
     # print(df_train_y.dtypes)
     # print(train_tokens[:5])
-
 
 
