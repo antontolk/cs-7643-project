@@ -2,6 +2,7 @@ from pathlib import Path
 
 from app.data_load import load_dataset
 from app.tokenizer_bpe import TokenizerBPE
+from app.tokenizer_word import TokenizerWord
 from app.settings import Settings
 
 if __name__ == '__main__':
@@ -44,6 +45,31 @@ if __name__ == '__main__':
         df_test_x['Utterance'],
         padding=True,
     )
+    # print(train_tokens[:5])
+    
+    # Word Tokenization
+    word_tokenizer = TokenizerWord(
+        vocab_size=50000,
+        special_tokens=["[UNK]", "[PAD]"],
+        show_progress=True,
+        unk_token="[UNK]",
+        path='vocab_word.json',
+    )
+    
+    # Prepare Word tokens
+    word_tokenizer.fit(df_train_x['Utterance'])
+    train_tokens_word = word_tokenizer.transform(
+        df_train_x['Utterance'], 
+        padding=True
+    )
+    val_tokens_word = word_tokenizer.transform(
+        df_val_x['Utterance'], 
+        padding=True
+    )
+    test_tokens_word = word_tokenizer.transform(
+        df_test_x['Utterance'], 
+        padding=True)
+    # print(train_tokens_word[:5])
 
     # Print data
     # print(emotions)
@@ -52,7 +78,6 @@ if __name__ == '__main__':
     # print(df_train_x.dtypes)
     # print(df_train_y.head(5))
     # print(df_train_y.dtypes)
-    # print(train_tokens[:5])
 
 
 
