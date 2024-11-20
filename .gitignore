@@ -80,6 +80,8 @@ target/
 .ipynb_checkpoints
 *.ipynb
 
+!analysis/data-analytics.ipynb
+
 # IPython
 profile_default/
 ipython_config.py
