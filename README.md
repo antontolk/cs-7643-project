@@ -7,5 +7,7 @@ CS-7643 Project
   `conda env create -f environment.yml`
 - Activate conda environment:
   `conda activate cs7643_project`
+- Update conda environment:
+  `conda env update -f environment.yml --prune`
 - Export environment:
   `conda env export > environment.yml`
