@@ -1,9 +1,15 @@
+import logging
 from pathlib import Path
 from typing import Tuple, Any
 
 import numpy as np
 import pandas as pd
 
+from app.logging_config import logger_config
+
+
+logger = logging.getLogger(__name__)
+logger_config(logger)
 
 def load_dataset(
         train_path: Path,
@@ -27,6 +33,7 @@ def load_dataset(
     """
     # MELD Dataset
     if dataset == 'MELD':
+        logger.info('MELD Dataset is being loaded')
 
         cols_to_load = [
             'Sr No.', 'Utterance', 'Speaker', 'Emotion', 'Sentiment',
@@ -53,6 +60,10 @@ def load_dataset(
             usecols=cols_to_load,
             dtype=dtype,
         )
+        logger.info(
+            'Train Dataset has been loaded. Shape: %s',
+            df_train.shape,
+        )
 
         #######################################################################
         # Validation dataset
@@ -63,6 +74,10 @@ def load_dataset(
             usecols=cols_to_load,
             dtype=dtype,
         )
+        logger.info(
+            'Validation Dataset has been loaded. Shape: %s',
+            df_val.shape,
+        )
 
         #######################################################################
         # Test dataset
@@ -72,6 +87,10 @@ def load_dataset(
             index_col='Sr No.',
             usecols=cols_to_load,
             dtype=dtype,
+        )
+        logger.info(
+            'Test Dataset has been loaded. Shape: %s',
+            df_test.shape,
         )
 
     else:
