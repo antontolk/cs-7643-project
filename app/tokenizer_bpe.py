@@ -108,12 +108,16 @@ class TokenizerBPE:
             self,
             X: pd.DataFrame | pd.Series,
             padding: bool,
+            padding_size: None = None | int
     ) -> list[np.ndarray] | np.ndarray:
         """Tokenizes the text
 
         :param X: Dataset.
         :type X: pandas.DataFrame | pandas.Series
         :param padding: if True, all arrays will be padded
+        :type padding: bool
+        :param padding_size: If specified, the size of padding
+        :type padding_size: int
 
         :return: tokenized dataset
         :rtype: list[np.ndarray] | np.ndarray
@@ -128,7 +132,11 @@ class TokenizerBPE:
         if padding:
             pad_token = self.tokenizer.encode('[PAD]').ids[0]
 
-            max_length = max(x.shape[0] for x in out)
+            if isinstance(padding_size, int):
+                max_length = padding_size
+            else:
+                max_length = max(x.shape[0] for x in out)
+
             out = np.array([
                 np.pad(x, (0, max_length - x.shape[0]), constant_values=pad_token)
                 for x in out

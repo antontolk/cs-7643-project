@@ -10,7 +10,7 @@ def load_dataset(
         val_path: Path,
         test_path: Path,
         dataset: str = 'MELD',
-) -> tuple[dict, dict, Any, Any, Any, Any, Any, Any]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Loads train, validation and test datasets.
 
     :param train_path: Path to the train dataset file.
@@ -22,10 +22,8 @@ def load_dataset(
     :param dataset: The name of the dataset to be loaded.
     :type dataset: str
 
-    :returns: emotion categories, sentiment categories, tuple of six pandas
-      Dataframes that includes train samples and labels, validation samples and
-      labels, and test samples and labels.
-    :rtype: tuple
+    :returns: train, val and test datasets
+    :rtype: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
     """
     # MELD Dataset
     if dataset == 'MELD':
@@ -55,23 +53,6 @@ def load_dataset(
             usecols=cols_to_load,
             dtype=dtype,
         )
-        # Create mapping for emotion and sentiment categories
-        emotions = {
-            emotion: i
-            for i, emotion in enumerate(df_train.loc[:, 'Emotion'].unique())
-        }
-        sentiments = {
-            sentiment: i
-            for i, sentiment in enumerate(df_train.loc[:, 'Sentiment'].unique())
-        }
-
-        # Replace categories by integers
-        df_train['Emotion'] = df_train['Emotion'].map(emotions)
-        df_train['Sentiment'] = df_train['Sentiment'].map(sentiments)
-
-        # Split dataset by samples and labels
-        df_train_x = df_train.loc[:, ['Utterance', 'Speaker']]
-        df_train_y = df_train.loc[:, ['Emotion', 'Sentiment']]
 
         #######################################################################
         # Validation dataset
@@ -83,14 +64,6 @@ def load_dataset(
             dtype=dtype,
         )
 
-        # Replace categories by integers
-        df_val['Emotion'] = df_val['Emotion'].map(emotions)
-        df_val['Sentiment'] = df_val['Sentiment'].map(sentiments)
-
-        # Split dataset by samples and labels
-        df_val_x = df_val.loc[:, ['Utterance', 'Speaker']]
-        df_val_y = df_val.loc[:, ['Emotion', 'Sentiment']]
-
         #######################################################################
         # Test dataset
         df_test = pd.read_csv(
@@ -101,15 +74,7 @@ def load_dataset(
             dtype=dtype,
         )
 
-        # Replace categories by integers
-        df_test['Emotion'] = df_test['Emotion'].map(emotions)
-        df_test['Sentiment'] = df_test['Sentiment'].map(sentiments)
-
-        # Split dataset by samples and labels
-        df_test_x = df_test.loc[:, ['Utterance', 'Speaker']]
-        df_test_y = df_test.loc[:, ['Emotion', 'Sentiment']]
     else:
         raise ValueError(f'{dataset} is not supported.')
 
-    return emotions, sentiments, df_train_x, df_train_y, df_val_x, df_val_y, \
-        df_test_x, df_test_y
+    return df_train, df_val, df_test

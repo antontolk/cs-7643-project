@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from app.data_load import load_dataset
-from app.tokenizer_bpe import TokenizerBPE
+from app.dataset_preprocessing import meld_processing
+
+
 from app.settings import Settings
 from app.tokenizer import tokenizer_by_word
 
@@ -10,49 +12,26 @@ if __name__ == '__main__':
     settings = Settings()
 
     # Load dataset
-    emotions, sentiments, df_train_x, df_train_y, df_val_x, df_val_y, \
-        df_test_x, df_test_y = load_dataset(
+    df_train, df_val, df_test = load_dataset(
             train_path=settings.data_load.meld_train,
             val_path=settings.data_load.meld_val,
             test_path=settings.data_load.meld_test,
             dataset='MELD',
         )
 
-    # BPE Tokenization
-    bpe_tokenizer = TokenizerBPE(
-        vocab_size=50000,
-        min_frequency=0,
-        special_tokens=["[UNK]", "[PAD]"],
-        continuing_subword_prefix="_",
-        end_of_word_suffix="__",
-        max_token_length=None,
-        show_progress=True,
-        unk_token="[UNK]",
-        path='vocab.json',
+    # Data preprocessing
+    ds_train, ds_val, ds_test, categories = meld_processing(
+        df_train=df_train,
+        df_val=df_val,
+        df_test=df_test,
+        labels=settings.data_preprocessing.labels,
+        encode_speakers=settings.data_preprocessing.encode_speakers,
+        utterance_processing=settings.data_preprocessing.utterance_processing,
+        ngram=settings.data_preprocessing.ngram,
     )
 
-    # Prepare BPE tokens
-    bpe_tokenizer.fit(df_train_x['Utterance'])
-    train_tokens = bpe_tokenizer.transform(
-        df_train_x['Utterance'],
-        padding=True,
-    )
-    val_tokens = bpe_tokenizer.transform(
-        df_val_x['Utterance'],
-        padding=True,
-    )
-    test_tokens = bpe_tokenizer.transform(
-        df_test_x['Utterance'],
-        padding=True,
-    )
+    # Create the model
 
-    # Print data
-    # print(emotions)
-    # print(sentiments)
-    # print(df_train_x.head(5))
-    # print(df_train_x.dtypes)
-    # print(df_train_y.head(5))
-    # print(df_train_y.dtypes)
-    # print(train_tokens[:5])
+    # Train the model
 
 
