@@ -1,5 +1,6 @@
 """Data processing realted scripts"""
 import logging
+import regex as re
 
 import torch
 from torch.utils.data import TensorDataset, DataLoader
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+import spacy
 
 from app.tokenizer_bpe import TokenizerBPE
 from app.logging_config import logger_config
@@ -20,8 +22,14 @@ def meld_processing(
         df_test: pd.DataFrame,
         labels: list,
         encode_speakers: bool,
+        lemmatization: bool,
+        remove_punc_signs: bool,
+        strip: bool,
         utterance_processing: str,
         ngram: tuple,
+        stop_words: list | str = 'english',
+        top_n_speakers: int | None = None,
+        tokens_in_sentence: int | None = None,
         batch_size: int = 32,
         shuffle: bool = True,
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict]:
@@ -37,6 +45,10 @@ def meld_processing(
     :type labels: list
     :param encode_speakers: If True, the Speaker column will be added to
         samples as One-Hot vectors.
+    :param lemmatization: if True, lemmatization will be applied.
+    :type lemmatization: bool
+    :param remove_punc_signs: if True, punctuations and signs will be removed.
+    :type remove_punc_signs: bool
     :param utterance_processing: Options:
         ngram - if ngram is (1, 1) Bag of Word, else N-Grams
         BPE - Byte Pair Encoding
@@ -44,6 +56,13 @@ def meld_processing(
     :param ngram: The lower and upper boundary of the range of n-values for
         different word n-grams or char n-grams to be extracted.
     :type ngram: tuple
+    :param stop_words: The list of stop words.
+    :type: set | list
+    :param tokens_in_sentence: If specified, all sentences will be padded or
+        shrunk to the specified length. For Word and BPE tokenization only
+    :param top_n_speakers: if specified, only top N speakers will be considered
+        for the speaker One-Hot encoding
+    :type top_n_speakers: int | None
     :param batch_size: The batch size
     :type batch_size: int
     :param shuffle: If True, datasets will be shuffled
@@ -84,16 +103,67 @@ def meld_processing(
     df_test['Sentiment'] = df_test['Sentiment'].map(sentiments)
     logger.info('Sentiments categories have been replaced')
 
+    ###########################################################################
+    # Remove punctuations and signs
+    if remove_punc_signs:
+        logger.info('Punctuations and signs are being removed.')
+        regex = r'[\p{P}\p{S}]+'
+        df_train['Utterance'] = df_train.loc[:, 'Utterance'].map(
+            lambda x: re.sub(regex, '', x)
+        )
+        df_val['Utterance'] = df_val.loc[:, 'Utterance'].map(
+            lambda x: re.sub(regex, '', x)
+        )
+        df_test['Utterance'] = df_test.loc[:, 'Utterance'].map(
+            lambda x: re.sub(regex, '', x)
+        )
+        logger.info('Punctuations and signs have been removed.')
+
+    ###########################################################################
+    if strip:
+        logger.info('Utterances are being stripped.')
+        df_train['Utterance'] = df_train.loc[:, 'Utterance'].map(
+            lambda x: x.strip()
+        )
+        df_val['Utterance'] = df_val.loc[:, 'Utterance'].map(
+            lambda x: x.strip()
+        )
+        df_test['Utterance'] = df_test.loc[:, 'Utterance'].map(
+            lambda x: x.strip()
+        )
+        logger.info('Utterances have been stripped.')
+
+    #######################################################################
+    # Lemmatization
+    if lemmatization:
+        logger.info('Utterances are being lemmatized')
+
+        # Load English model (small)
+        spacy_model = spacy.load('en_core_web_sm')
+
+        df_train['Utterance'] = df_train.loc[:, 'Utterance'].apply(
+            lambda x: ' '.join([token.lemma_ for token in spacy_model(x)])
+        )
+        df_val['Utterance'] = df_val.loc[:, 'Utterance'].apply(
+            lambda x: ' '.join([token.lemma_ for token in spacy_model(x)])
+        )
+        df_test['Utterance'] = df_test.loc[:, 'Utterance'].apply(
+            lambda x: ' '.join([token.lemma_ for token in spacy_model(x)])
+        )
+        logger.info('Utterances have been lemmatized')
+
+
     #######################################################################
     # Transformations of the Utterance column
     if utterance_processing == 'counts':
         logger.info(
-            'Utterance will be transformed using CountVectorizer, N-Grams: %s',
+            'Utterances are being transformed using CountVectorizer, N-Grams: %s',
             ngram,
         )
         count_vect = CountVectorizer(
             lowercase=True,
             ngram_range=ngram,
+            stop_words=stop_words,
         )
         count_vect.fit(df_train.loc[:, 'Utterance'])
         X_train = count_vect.transform(df_train.loc[:, 'Utterance']).toarray()
@@ -101,8 +171,9 @@ def meld_processing(
         X_test = count_vect.transform(df_test.loc[:, 'Utterance']).toarray()
         categories['utterance'] = count_vect.get_feature_names_out()
         logger.info(
-            'Utterance have be transformed using CountVectorizer.Train %s.'
-            'Val: %s. Test: %s',
+            'Utterance have be transformed using CountVectorizer. '
+            'Vocabulary size: %d. Train %s. Val: %s. Test: %s',
+            len(count_vect.vocabulary_),
             X_train.shape, X_val.shape, X_test.shape,
         )
 
@@ -121,6 +192,7 @@ def meld_processing(
             lowercase=True,
             ngram_range=ngram,
             smooth_idf=True,
+            stop_words=stop_words,
         )
         vectorizer.fit(df_train.loc[:, 'Utterance'])
         X_train = vectorizer.transform(df_train.loc[:, 'Utterance']).toarray()
@@ -128,8 +200,9 @@ def meld_processing(
         X_test = vectorizer.transform(df_test.loc[:, 'Utterance']).toarray()
         categories['utterance'] = vectorizer.get_feature_names_out()
         logger.info(
-            'Utterance have be transformed using TfidfVectorizer.Train %s.'
-            'Val: %s. Test: %s',
+            'Utterance have be transformed using TfidfVectorizer.'
+            'Vocabulary size: %d. Train %s.Val: %s. Test: %s',
+            len(vectorizer.vocabulary_),
             X_train.shape, X_val.shape, X_test.shape,
         )
 
@@ -156,17 +229,15 @@ def meld_processing(
         bpe_tokenizer.fit(df_train['Utterance'])
         X_train = bpe_tokenizer.transform(
             df_train['Utterance'],
-            padding=True,
+            tokens_in_sentence=tokens_in_sentence,
         )
         X_val = bpe_tokenizer.transform(
             df_val['Utterance'],
-            padding=True,
-            padding_size=X_train.shape[1],
+            tokens_in_sentence=tokens_in_sentence,
         )
         X_test = bpe_tokenizer.transform(
             df_test['Utterance'],
-            padding=True,
-            padding_size=X_train.shape[1],
+            tokens_in_sentence=tokens_in_sentence,
         )
         logger.info(
             'Utterance have be transformed using Byte Pair Encoding. Train %s.'
@@ -177,7 +248,29 @@ def meld_processing(
     #######################################################################
     # Convert Speaker columns to One-Hot vectors
     if encode_speakers:
-        encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+
+        # Leave only top N speakers, others will replaced by Other
+        if top_n_speakers:
+            top_n_speakers = df_train.loc[:, 'Speaker'].value_counts()\
+                .nlargest(top_n_speakers).index
+            df_train['Speaker'] = df_train.loc[:, 'Speaker'].where(
+                df_train.loc[:, 'Speaker'].isin(top_n_speakers),
+                other='Other',
+            )
+            df_val['Speaker'] = df_val.loc[:, 'Speaker'].where(
+                df_val.loc[:, 'Speaker'].isin(top_n_speakers),
+                other='Other',
+            )
+            df_test['Speaker'] = df_test.loc[:, 'Speaker'].where(
+                df_test.loc[:, 'Speaker'].isin(top_n_speakers),
+                other='Other',
+            )
+
+        encoder = OneHotEncoder(
+            # max_categories=top_n_speakers,
+            handle_unknown='ignore',
+            sparse_output=False,
+        )
         encoder.fit(df_train.loc[:, 'Speaker'].values.reshape(-1, 1))
         categories['speakers'] = encoder.categories_
         logger.info('Speakers categories: %s', encoder.categories_)
@@ -191,10 +284,6 @@ def meld_processing(
         speaker_test = encoder.transform(
             df_test.loc[:, 'Speaker'].values.reshape(-1, 1)
         )
-        # df_train.drop(columns=['Speaker'], inplace=True)
-        # df_val.drop(columns=['Speaker'], inplace=True)
-        # df_test.drop(columns=['Speaker'], inplace=True)
-
         logger.info(
             'Speaker One-Hot vectors have been prepared. Train: %s. Val: %s. Test: %s',
             speaker_train.shape, speaker_val.shape, speaker_test.shape,

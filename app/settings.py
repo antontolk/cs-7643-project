@@ -34,9 +34,15 @@ class DataLoadSettings(BaseSettings):
 class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
-    encode_speakers: bool = True            # Will add speakers to samples
-    utterance_processing: str = 'TF-IDF'     # Options: word, BPE, counts, TF-IDF
+    utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
+    lemmatization: bool = True
     ngram: tuple = (1, 2)
+    stop_words: str = 'english'
+    remove_punc_signs: bool = False          # Remove punctuation, signs
+    strip: bool = True
+    tokens_in_sentence: int = 30            # The size of the sentence (BPE, Word only)
+    encode_speakers: bool = True            # Will add speakers to samples
+    top_n_speakers: int = 10                # Only Top N speakers will be considered
     batch_size: int = 32
     shuffle: bool = True
 
