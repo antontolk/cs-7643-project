@@ -77,6 +77,8 @@ class TokenizerBPE:
     def fit(
             self,
             X: pd.DataFrame | pd.Series,
+
+
     ):
         """Fits the tokenizer.
 
@@ -105,40 +107,31 @@ class TokenizerBPE:
     def transform(
             self,
             X: pd.DataFrame | pd.Series,
-            tokens_in_sentence: int | None = None,
+            padding: bool,
     ) -> list[np.ndarray] | np.ndarray:
         """Tokenizes the text
 
         :param X: Dataset.
         :type X: pandas.DataFrame | pandas.Series
-        :param tokens_in_sentence: If specified, all sentences will be
-            padded or shrunk to the specified length.
-        :type tokens_in_sentence: int
+        :param padding: if True, all arrays will be padded
 
         :return: tokenized dataset
         :rtype: list[np.ndarray] | np.ndarray
         """
         # Tokenize dataset
-        sentences = [
+        out = [
             np.array(enc.ids)
             for enc in self.tokenizer.encode_batch(input=X)
         ]
 
         # Pad arrays by "[PAD]"
-        if tokens_in_sentence:
+        if padding:
             pad_token = self.tokenizer.encode('[PAD]').ids[0]
 
-            out = np.zeros((len(sentences), tokens_in_sentence), dtype='int64')
-            for i, x in enumerate(sentences):
-                if x.shape[0] < tokens_in_sentence:
-                    out[i] = np.pad(
-                        x,
-                        (0, tokens_in_sentence - x.shape[0]),
-                        constant_values=pad_token
-                    )
-                else:
-                    out[i] = x[:tokens_in_sentence]
+            max_length = max(x.shape[0] for x in out)
+            out = np.array([
+                np.pad(x, (0, max_length - x.shape[0]), constant_values=pad_token)
+                for x in out
+            ])
 
-            return out
-
-        return sentences
+        return out
