@@ -336,12 +336,12 @@ def meld_processing(
         shuffle=shuffle,
     )
     ds_val = DataLoader(
-        TensorDataset(X_train, y_train),
+        TensorDataset(X_val, y_val),
         batch_size=batch_size,
         shuffle=shuffle,
     )
     ds_test = DataLoader(
-        TensorDataset(X_train, y_train),
+        TensorDataset(X_test, y_test),
         batch_size=batch_size,
         shuffle=shuffle,
     )
