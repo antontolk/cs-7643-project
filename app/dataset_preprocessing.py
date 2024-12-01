@@ -330,21 +330,21 @@ def meld_processing(
 
     # Place Tensors to Dataset
     logger.info('Tensors is being placed to DataLoaders')
-    ds_train = DataLoader(
+    dl_train = DataLoader(
         TensorDataset(X_train, y_train),
         batch_size=batch_size,
         shuffle=shuffle,
     )
-    ds_val = DataLoader(
+    dl_val = DataLoader(
         TensorDataset(X_val, y_val),
         batch_size=batch_size,
         shuffle=shuffle,
     )
-    ds_test = DataLoader(
+    dl_test = DataLoader(
         TensorDataset(X_test, y_test),
         batch_size=batch_size,
         shuffle=shuffle,
     )
     logger.info('Tensors have been placed to DataLoaders')
 
-    return ds_train, ds_val, ds_test, categories
+    return dl_train, dl_val, dl_test, categories
