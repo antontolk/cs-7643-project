@@ -7,19 +7,16 @@ import numpy as np
 import pandas as pd
 from tokenizers import Tokenizer
 from tokenizers.pre_tokenizers import Whitespace
-from tokenizers.models import BPE
-from tokenizers.trainers import BpeTrainer
+from tokenizers.models import WordLevel
+from tokenizers.trainers import WordLevelTrainer
 
+logger = logging.getLogger(__name__)
 
-class TokenizerBPE:
+class TokenizerWord:
     def __init__(
             self,
             vocab_size: int,
-            min_frequency: int,
             special_tokens: list[str],
-            continuing_subword_prefix: str,
-            end_of_word_suffix: str,
-            max_token_length: int | None,
             show_progress: bool,
             unk_token: str,
             path: str | None
@@ -29,22 +26,9 @@ class TokenizerBPE:
         :param vocab_size: The size of the final vocabulary, including all
           tokens and alphabet.
         :type vocab_size: int
-        :param min_frequency: The minimum frequency a pair should have in order
-          to be merged.
-        :type min_frequency: int
         :param special_tokens: A list of special tokens the model should know
           of.
         :type special_tokens: list[str]
-        :param continuing_subword_prefix: A prefix to be used for every subword
-          that is not a beginning-of-word.
-        :type continuing_subword_prefix: str
-        :param end_of_word_suffix: A suffix to be used for every subword that
-          is a end-of-word.
-        :type end_of_word_suffix: str
-        :param max_token_length: Prevents creating tokens longer than the
-          specified size. This can help with reducing polluting your vocabulary
-          with highly repetitive tokens like ====== for wikipedia
-        :type max_token_length: int | None
         :param show_progress: Whether to show progress bars while training.
         :type show_progress: bool
         :param unk_token: The token used for out-of-vocabulary tokens.
@@ -54,22 +38,18 @@ class TokenizerBPE:
         """
         self.show_progress = show_progress
         self.path = path
-        self.voc_size = None
+        self.vocab_size = vocab_size
 
         # Init tokenizer
-        self.tokenizer = Tokenizer(BPE(unk_token=unk_token))
+        self.tokenizer = Tokenizer(WordLevel(unk_token=unk_token))
 
         # Add pretokenizer
         self.tokenizer.pre_tokenizer = Whitespace()
 
         # Initiate a trainer
-        self.trainer = BpeTrainer(
+        self.trainer = WordLevelTrainer(
             vocab_size=vocab_size,
-            min_frequency=min_frequency,
             special_tokens=special_tokens,
-            continuing_subword_prefix=continuing_subword_prefix,
-            end_of_word_suffix=end_of_word_suffix,
-            max_token_length=max_token_length,
             show_progress=show_progress,
         )
 
@@ -88,19 +68,19 @@ class TokenizerBPE:
         :rtype: tuple[Dataset, Dataset, Dataset, dict[str, int]]
         """
 
+        logger.info('Training Word-Level Tokenizer...')
+
         # Train tokenizer
         self.tokenizer.train_from_iterator(
             iterator=X,
             trainer=self.trainer,
         )
 
-        # Save vocabulary size
-        if self.show_progress:
-            self.voc_size = len(self.tokenizer.get_vocab())
-            print(f'The vocabulary size: {self.voc_size}')
+        logger.info('Word-Level Tokenizer training completed.')
 
         if self.path is not None:
             self.tokenizer.save(self.path)
+            logger.info('Tokenizer saved at %s.', self.path)
 
     def transform(
             self,
@@ -111,34 +91,37 @@ class TokenizerBPE:
 
         :param X: Dataset.
         :type X: pandas.DataFrame | pandas.Series
-        :param tokens_in_sentence: If specified, all sentences will be
-            padded or shrunk to the specified length.
-        :type tokens_in_sentence: int
+        :param padding: if True, all arrays will be padded
 
         :return: tokenized dataset
         :rtype: list[np.ndarray] | np.ndarray
         """
+        
+        logger.info('Transforming text data using Word-Level Tokenizer...')
+
         # Tokenize dataset
-        sentences = [
+        tokenized = [
             np.array(enc.ids)
-            for enc in self.tokenizer.encode_batch(input=X)
+            for enc in self.tokenizer.encode_batch(input=X.tolist())
         ]
 
-        # Pad arrays by "[PAD]"
+        # Pad arrays or truncate
         if tokens_in_sentence:
-            pad_token = self.tokenizer.encode('[PAD]').ids[0]
+            pad_token = self.tokenizer.token_to_id('[PAD]')
+            padded = np.zeros((len(tokenized), tokens_in_sentence), dtype='int64')
 
-            out = np.zeros((len(sentences), tokens_in_sentence), dtype='int64')
-            for i, x in enumerate(sentences):
-                if x.shape[0] < tokens_in_sentence:
-                    out[i] = np.pad(
-                        x,
-                        (0, tokens_in_sentence - x.shape[0]),
-                        constant_values=pad_token
+            for i, tokens in enumerate(tokenized):
+                if len(tokens) < tokens_in_sentence:
+                    padded[i] = np.pad(
+                        tokens,
+                        (0, tokens_in_sentence - len(tokens)),
+                        constant_values=pad_token,
                     )
                 else:
-                    out[i] = x[:tokens_in_sentence]
+                    padded[i] = tokens[:tokens_in_sentence]
 
-            return out
+            logger.info('Text data transformed and padded to %d tokens.', tokens_in_sentence)
+            return padded
 
-        return sentences
+        logger.info('Text data transformed without padding.')
+        return np.array(tokenized, dtype=object)

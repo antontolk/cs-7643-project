@@ -11,6 +11,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import spacy
 
 from app.tokenizer_bpe import TokenizerBPE
+from app.tokenizer_word import TokenizerWord
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
@@ -208,7 +209,28 @@ def meld_processing(
 
     # Tokenization by Word
     elif utterance_processing == 'word':
-        ...
+        logger.info('Utterances will be tokenized using Word-Level Tokenizer.')
+        word_tokenizer = TokenizerWord(
+            vocab_size=50000,
+            special_tokens=["[UNK]", "[PAD]"],
+            show_progress=True,
+            unk_token="[UNK]",
+            path='vocab_word.json',
+        )
+        word_tokenizer.fit(df_train['Utterance'])
+        X_train = word_tokenizer.transform(
+            df_train['Utterance'],
+            tokens_in_sentence=tokens_in_sentence,
+        )
+        X_val = word_tokenizer.transform(
+            df_val['Utterance'],
+            tokens_in_sentence=tokens_in_sentence,
+        )
+        X_test = word_tokenizer.transform(
+            df_test['Utterance'],
+            tokens_in_sentence=tokens_in_sentence,
+        )
+        logger.info('Utterances have been tokenized with Word-Level Tokenizer.')
 
     # BPE Tokenization
     elif utterance_processing == 'BPE':
@@ -330,6 +352,7 @@ def meld_processing(
 
     # Place Tensors to Dataset
     logger.info('Tensors is being placed to DataLoaders')
+
     dl_train = DataLoader(
         TensorDataset(X_train, y_train),
         batch_size=batch_size,
@@ -348,3 +371,4 @@ def meld_processing(
     logger.info('Tensors have been placed to DataLoaders')
 
     return dl_train, dl_val, dl_test, categories
+

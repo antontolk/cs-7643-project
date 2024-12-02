@@ -54,3 +54,4 @@ class FullyConnectedNet(nn.Module):
         out_sentiment = self.sentiment_head(x)
 
         return out_emotion, out_sentiment
+

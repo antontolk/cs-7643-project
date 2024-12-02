@@ -2,6 +2,14 @@ from pathlib import Path
 import logging
 
 from app.data_load import load_dataset
+
+from app.dataset_preprocessing import meld_processing
+from app.training import model_training
+from app.model_fc import FullyConnectedNet
+from app.tokenizer_bpe import TokenizerBPE
+from app.tokenizer_word import TokenizerWord
+
+
 from app.dataset_preprocessing import meld_processing
 from app.training import model_training
 from app.model_fc import FullyConnectedNet
@@ -40,6 +48,15 @@ if __name__ == '__main__':
         top_n_speakers=settings.data_preprocessing.top_n_speakers,
     )
 
+    # Word Tokenization
+    word_tokenizer = TokenizerWord(
+        vocab_size=50000,
+        special_tokens=["[UNK]", "[PAD]"],
+        show_progress=True,
+        unk_token="[UNK]",
+        path='vocab_word.json',
+    )
+
     # Create the model
     if settings.model.type == 'fc':
         model = FullyConnectedNet(
@@ -65,7 +82,3 @@ if __name__ == '__main__':
         criterion_type=settings.training.criterion_type,
         lr=settings.training.lr,
     )
-
-
-
-
