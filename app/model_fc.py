@@ -51,12 +51,7 @@ class FullyConnectedNet(nn.Module):
         """Network forward pass"""
         x = self.linear_1(x)
         out_emotion = self.emotion_head(x)
-<<<<<<< HEAD
         out_sentiment = self.sentiment_head(x)
 
         return out_emotion, out_sentiment
-=======
-        out_sentiment = self.emotion_head(x)
 
-        return out_emotion, out_sentiment
->>>>>>> 96b5e1e (updated word tokenizer)
