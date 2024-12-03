@@ -36,7 +36,7 @@ class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
     utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
-    lemmatization: bool = True
+    lemmatization: bool = False
     ngram: tuple = (1, 1)
     stop_words: str = 'english'
     remove_punc_signs: bool = False          # Remove punctuation, signs
@@ -56,9 +56,13 @@ class ModelSettings(BaseSettings):
 
 class TrainingSettings(BaseSettings):
     """The Training Settings"""
-    epochs: int = 100
+    epochs: int = 10
     lr: float = 0.001
-    criterion_type: str = 'ce'  # ce - Cross Entropy
+    weight_decay: float = 1e-5
+    # ce - Cross Entropy, 'wce' - Weighted Cross Entropy,
+    # 'focal' - Focal Loss, 'label_smoothing' - Label Smoothing Loss
+    criterion_type: str = 'wce'
+    labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
 
 
 class Settings(BaseSettings):

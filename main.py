@@ -62,7 +62,7 @@ if __name__ == '__main__':
         model = FullyConnectedNet(
             n_features=dl_train.dataset[0][0].shape[0],
             labels=settings.data_preprocessing.labels,
-            hidden=2048,
+            hidden=1024,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     logger.info(model)
 
     # Train the model
-    model_training(
+    df_results, cm = model_training(
         model=model,
         dl_train=dl_train,
         dl_val=dl_val,
@@ -81,4 +81,16 @@ if __name__ == '__main__':
         epochs=settings.training.epochs,
         criterion_type=settings.training.criterion_type,
         lr=settings.training.lr,
+        weight_decay=settings.training.weight_decay,
+        labels=settings.training.labels,
+        n_classes=[
+            len(categories['emotions']),
+            len(categories['sentiments']),
+        ],
     )
+
+    df_results.to_csv('training_metrics.csv', index=False)
+    print(df_results)
+
+    print(cm['emotion'])
+    print(cm['sentiment'])
