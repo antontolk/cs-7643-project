@@ -177,6 +177,7 @@ def meld_processing(
             len(count_vect.vocabulary_),
             X_train.shape, X_val.shape, X_test.shape,
         )
+        tensor_type = torch.float  
 
         # Normalise count values
         scaler = StandardScaler()
@@ -210,6 +211,7 @@ def meld_processing(
     # Tokenization by Word
     elif utterance_processing == 'word':
         logger.info('Utterances will be tokenized using Word-Level Tokenizer.')
+        
         word_tokenizer = TokenizerWord(
             vocab_size=50000,
             special_tokens=["[UNK]", "[PAD]"],
@@ -217,6 +219,7 @@ def meld_processing(
             unk_token="[UNK]",
             path='vocab_word.json',
         )
+        
         word_tokenizer.fit(df_train['Utterance'])
         X_train = word_tokenizer.transform(
             df_train['Utterance'],
@@ -231,6 +234,8 @@ def meld_processing(
             tokens_in_sentence=tokens_in_sentence,
         )
         logger.info('Utterances have been tokenized with Word-Level Tokenizer.')
+        
+        tensor_type = torch.long
 
     # BPE Tokenization
     elif utterance_processing == 'BPE':
@@ -266,6 +271,8 @@ def meld_processing(
             'Val: %s. Test: %s',
             X_train.shape, X_val.shape, X_test.shape,
         )
+        
+        tensor_type = torch.long
 
     #######################################################################
     # Convert Speaker columns to One-Hot vectors
@@ -335,11 +342,13 @@ def meld_processing(
     ######################################################################
     # Convert NumPy arrays to PyTorch tensors
     logger.info('NumPy arrays is being converted to PyTorch tensors')
-    X_train = torch.from_numpy(X_train).float()
+    
+    X_train = torch.from_numpy(X_train).type(tensor_type)
+    X_val = torch.from_numpy(X_val).type(tensor_type)
+    X_test = torch.from_numpy(X_test).type(tensor_type)
+    
     y_train = torch.from_numpy(y_train).long()
-    X_val = torch.from_numpy(X_val).float()
     y_val = torch.from_numpy(y_val).long()
-    X_test = torch.from_numpy(X_test).float()
     y_test = torch.from_numpy(y_test).long()
 
     logger.info(

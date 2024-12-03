@@ -13,6 +13,7 @@ from app.tokenizer_word import TokenizerWord
 from app.dataset_preprocessing import meld_processing
 from app.training import model_training
 from app.model_fc import FullyConnectedNet
+from app.model_cnn import CNN1DNet
 from app.settings import Settings
 from app.logging_config import logger_config
 
@@ -56,6 +57,8 @@ if __name__ == '__main__':
         unk_token="[UNK]",
         path='vocab_word.json',
     )
+    word_tokenizer.fit(df_train['Utterance'])
+    vocab_size = word_tokenizer.vocab_size
 
     # Create the model
     if settings.model.type == 'fc':
@@ -63,6 +66,19 @@ if __name__ == '__main__':
             n_features=dl_train.dataset[0][0].shape[0],
             labels=settings.data_preprocessing.labels,
             hidden=2048,
+            n_classes=[
+                len(categories['emotions']),
+                len(categories['sentiments']),
+            ],
+        )
+    elif settings.model.type == 'cnn':
+        model = CNN1DNet(
+            vocab_size=vocab_size,
+            embedding_dim=100,
+            kernel_sizes=[3, 4, 5],
+            num_filters=100,
+            dropout=0.5,
+            labels=settings.data_preprocessing.labels,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),

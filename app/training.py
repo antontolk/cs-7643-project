@@ -38,6 +38,8 @@ def model_training(
 
     device = 'mps' if torch.mps.is_available() else \
         'cuda' if torch.cuda.is_available() else 'cpu'
+        
+    print(f"Device Type: {device}")
 
     # Define the loss functions
     if criterion_type == 'ce':
