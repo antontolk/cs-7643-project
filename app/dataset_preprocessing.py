@@ -435,35 +435,7 @@ def meld_processing(
         )
     logger.info('Tensors have been placed to DataLoaders')
 
-    ######################################################################
-    # determining class weights 
-    if utterance_processing == 'bert':
-        train_labels_1 = y_train[:, 0].numpy()  # Emotion labels (first column of y_train)
-        train_labels_2 = y_train[:, 1].numpy()  # Sentiment labels (second column of y_train)
-        # For Emotion labels
-        class_weights_emotion = compute_class_weight(
-            class_weight='balanced', 
-            classes=np.unique(train_labels_1),  # Emotion labels
-            y=train_labels_1
-        )
-        
-        # For Sentiment labels
-        class_weights_sentiment = compute_class_weight(
-            class_weight='balanced', 
-            classes=np.unique(train_labels_2),  # Sentiment labels
-            y=train_labels_2
-        )
-        
-        # Convert class weights to tensors
-        # class_weights_emotion = torch.tensor(class_weights_emotion, dtype=torch.float)
-        # class_weights_sentiment = torch.tensor(class_weights_sentiment, dtype=torch.float)
-        
-        emotion_weights = torch.tensor(class_weights_emotion, dtype=torch.float).clone().detach()
-        sentiment_weights = torch.tensor(class_weights_sentiment, dtype=torch.float).clone().detach()
-    else:
-        emotion_weights = None
-        sentiment_weights = None
-
+    
     ######################################################################
     # Convert NumPy arrays to PyTorch tensors
     logger.info('NumPy arrays is being converted to PyTorch tensors')
@@ -501,4 +473,4 @@ def meld_processing(
         shuffle=shuffle,
     )
     logger.info('Tensors have been placed to DataLoaders')
-    return ds_train, ds_val, ds_test, categories, emotion_weights,sentiment_weights
+    return ds_train, ds_val, ds_test, categories

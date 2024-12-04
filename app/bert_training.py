@@ -20,9 +20,7 @@ def bert_model_training(
         epochs: int,
         criterion_type: str,
         lr: float,
-        optimiser_val: str, #either Adam or AdamW,
-        emotion_weights,
-        sentiment_weights
+        optimiser_val: str #either Adam or AdamW,
 ):
     """
     The model training.

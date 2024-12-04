@@ -49,7 +49,7 @@ if __name__ == '__main__':
         )
     
     # Data preprocessing
-    dl_train, dl_val, dl_test, categories,emotion_weights,sentiment_weights = meld_processing(
+    dl_train, dl_val, dl_test, categories = meld_processing(
         df_train=df_train,
         df_val=df_val,
         df_test=df_test,
@@ -119,9 +119,7 @@ if __name__ == '__main__':
             epochs=settings.bert_training.epochs,
             criterion_type=settings.bert_training.criterion_type,
             lr=settings.bert_training.lr,
-            optimiser_val=settings.bert_training.optimiser_val,
-            emotion_weights=emotion_weights,
-            sentiment_weights=sentiment_weights
+            optimiser_val=settings.bert_training.optimiser_val
             
         )
         
