@@ -1,6 +1,8 @@
 from pathlib import Path
 import logging
 
+import torch
+
 from app.data_load import load_dataset
 
 from app.dataset_preprocessing import meld_processing
@@ -98,3 +100,9 @@ if __name__ == '__main__':
         criterion_type=settings.training.criterion_type,
         lr=settings.training.lr,
     )
+    
+    torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
+    
+    # this is to load on cpu
+    #device = torch.device("cpu")
+    #model.load_state_dict(torch.load("cnn1d_model.pth", map_location=device)) 
