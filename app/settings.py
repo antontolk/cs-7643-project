@@ -51,7 +51,7 @@ class DatasetProcessing(BaseSettings):
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
     type: str = 'fc'        # fc - Fully Connected
-    hidden_size: int = 32      # The size of the hidden layer
+    hidden_size: int = 16      # The size of the hidden layer
 
 
 class TrainingSettings(BaseSettings):
@@ -68,8 +68,14 @@ class TrainingSettings(BaseSettings):
 class Settings(BaseSettings):
     """Application settings."""
     dev: bool = False
+    output_dir: str = 'results'
 
     data_load: DataLoadSettings = DataLoadSettings()
     data_preprocessing: DatasetProcessing = DatasetProcessing()
     model: ModelSettings = ModelSettings()
     training: TrainingSettings = TrainingSettings()
+
+    @property
+    def output_dir_path(self) -> Path:
+        """Returns a path to the output folder"""
+        return module_root / '..' / self.output_dir

@@ -14,6 +14,7 @@ from app.dataset_preprocessing import meld_processing
 from app.training import model_training
 from app.model_fc import FullyConnectedNet
 from app.settings import Settings
+from app.visualisation import visualisation
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
@@ -89,8 +90,10 @@ if __name__ == '__main__':
         ],
     )
 
-    df_results.to_csv('training_metrics.csv', index=False)
-    print(df_results)
+    visualisation(
+        df=df_results,
+        cm=cm,
+        labels=settings.training.labels,
+        output_dir=settings.output_dir_path,
+    )
 
-    print(cm['emotion'])
-    print(cm['sentiment'])
