@@ -35,14 +35,14 @@ class DataLoadSettings(BaseSettings):
 class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
-    utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
-    lemmatization: bool = True
+    utterance_processing: str = 'bert'     # Options: counts, TF-IDF, word, BPE
+    lemmatization: bool = False
     ngram: tuple = (1, 1)
     stop_words: str = 'english'
     remove_punc_signs: bool = False          # Remove punctuation, signs
-    strip: bool = True
+    strip: bool = False    
     tokens_in_sentence: int = 30            # The size of the sentence (BPE, Word only)
-    encode_speakers: bool = True            # Will add speakers to samples
+    encode_speakers: bool = False        # Will add speakers to samples
     top_n_speakers: int = 10                # Only Top N speakers will be considered
     batch_size: int = 64
     shuffle: bool = True
@@ -50,7 +50,7 @@ class DatasetProcessing(BaseSettings):
 
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
-    type: str = 'fc'        # fc - Fully Connected
+    type: str = 'bert'        # fc - Fully Connected
     hidden: int = 4096      # The size of the hidden layer
 
 
@@ -59,6 +59,13 @@ class TrainingSettings(BaseSettings):
     epochs: int = 100
     lr: float = 0.001
     criterion_type: str = 'ce'  # ce - Cross Entropy
+
+class BertTrainingSettings(BaseSettings):
+    """The Training Settings"""
+    epochs: int = 10
+    lr: float = 0.001
+    criterion_type: str = 'ce'  # ce - Cross Entropy
+    optimiser_val: str ='AdamW'
 
 
 class Settings(BaseSettings):
@@ -69,3 +76,4 @@ class Settings(BaseSettings):
     data_preprocessing: DatasetProcessing = DatasetProcessing()
     model: ModelSettings = ModelSettings()
     training: TrainingSettings = TrainingSettings()
+    bert_training: BertTrainingSettings = BertTrainingSettings()

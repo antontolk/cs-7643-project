@@ -5,7 +5,6 @@ import torch
 from torch import nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
-
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
@@ -19,8 +18,8 @@ def model_training(
         dl_test: DataLoader,
         epochs: int,
         criterion_type: str,
-        lr: float,
-):
+        lr: float
+        ):
     """
     The model training.
 
