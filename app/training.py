@@ -18,8 +18,8 @@ def model_training(
         dl_test: DataLoader,
         epochs: int,
         criterion_type: str,
-        lr: float
-        ):
+        lr: float,
+):
     """
     The model training.
 

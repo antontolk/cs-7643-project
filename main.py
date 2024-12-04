@@ -10,12 +10,35 @@ from app.bert_model import BERT_Arch
 from app.settings import Settings
 from app.logging_config import logger_config
 from transformers import AutoModel, BertTokenizerFast
+
+from app.dataset_preprocessing import meld_processing
+from app.training import model_training
+from app.model_fc import FullyConnectedNet
+from app.tokenizer_bpe import TokenizerBPE
+from app.tokenizer_word import TokenizerWord
+
+
+from app.dataset_preprocessing import meld_processing
+from app.training import model_training
+from app.model_fc import FullyConnectedNet
+from app.settings import Settings
+from app.logging_config import logger_config
+import argparse
+
 logger = logging.getLogger(__name__)
 logger_config(logger)
 
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Sentiment Analysis')
+    parser.add_argument('-t','--type', help='Choose the model, fc and bert are only supported options', required=False)
+    args = vars(parser.parse_args())
     # Load settings
     settings = Settings()
+    if args['type'] is not None:
+        settings.model.type = args['type']
+
+    print('Model type:', settings.model.type)    
 
     # Load dataset
     df_train, df_val, df_test = load_dataset(
@@ -25,9 +48,7 @@ if __name__ == '__main__':
             dataset='MELD',
         )
     
-
     # Data preprocessing
-    
     dl_train, dl_val, dl_test, categories,emotion_weights,sentiment_weights = meld_processing(
         df_train=df_train,
         df_val=df_val,
@@ -42,6 +63,15 @@ if __name__ == '__main__':
         tokens_in_sentence=settings.data_preprocessing.tokens_in_sentence,
         encode_speakers=settings.data_preprocessing.encode_speakers,
         top_n_speakers=settings.data_preprocessing.top_n_speakers,
+    )
+
+    # Word Tokenization
+    word_tokenizer = TokenizerWord(
+        vocab_size=50000,
+        special_tokens=["[UNK]", "[PAD]"],
+        show_progress=True,
+        unk_token="[UNK]",
+        path='vocab_word.json',
     )
 
     # Create the model
@@ -80,7 +110,6 @@ if __name__ == '__main__':
             criterion_type=settings.training.criterion_type,
             lr=settings.training.lr,
         )
-    
     elif settings.model.type == 'bert':
         bert_model_training(
             model=model,
@@ -96,5 +125,3 @@ if __name__ == '__main__':
             
         )
         
-
-

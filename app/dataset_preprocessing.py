@@ -5,15 +5,15 @@ import regex as re
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from transformers import AutoModel, BertTokenizerFast
+
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import spacy
 from sklearn.utils.class_weight import compute_class_weight
-
-
 from app.tokenizer_bpe import TokenizerBPE
+from app.tokenizer_word import TokenizerWord
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
@@ -261,7 +261,28 @@ def meld_processing(
 
     # Tokenization by Word
     elif utterance_processing == 'word':
-        ...
+        logger.info('Utterances will be tokenized using Word-Level Tokenizer.')
+        word_tokenizer = TokenizerWord(
+            vocab_size=50000,
+            special_tokens=["[UNK]", "[PAD]"],
+            show_progress=True,
+            unk_token="[UNK]",
+            path='vocab_word.json',
+        )
+        word_tokenizer.fit(df_train['Utterance'])
+        X_train = word_tokenizer.transform(
+            df_train['Utterance'],
+            tokens_in_sentence=tokens_in_sentence,
+        )
+        X_val = word_tokenizer.transform(
+            df_val['Utterance'],
+            tokens_in_sentence=tokens_in_sentence,
+        )
+        X_test = word_tokenizer.transform(
+            df_test['Utterance'],
+            tokens_in_sentence=tokens_in_sentence,
+        )
+        logger.info('Utterances have been tokenized with Word-Level Tokenizer.')
 
     # BPE Tokenization
     elif utterance_processing == 'BPE':
@@ -363,7 +384,6 @@ def meld_processing(
         labels, y_train.shape, y_val.shape, y_test.shape,
     )
 
-    
     ######################################################################
     # Convert NumPy arrays to PyTorch tensors
     logger.info('NumPy arrays is being converted to PyTorch tensors')
@@ -444,7 +464,41 @@ def meld_processing(
         emotion_weights = None
         sentiment_weights = None
 
+    ######################################################################
+    # Convert NumPy arrays to PyTorch tensors
+    logger.info('NumPy arrays is being converted to PyTorch tensors')
+    X_train = torch.from_numpy(X_train).float()
+    y_train = torch.from_numpy(y_train).long()
+    X_val = torch.from_numpy(X_val).float()
+    y_val = torch.from_numpy(y_val).long()
+    X_test = torch.from_numpy(X_test).float()
+    y_test = torch.from_numpy(y_test).long()
 
-    
+    logger.info(
+        'NumPy arrays have been converted to PyTorch tensors. X_train: %s.'
+        'y_train: %s. X_val: %s. y_val: %s. X_test: %s. y_test: %s',
+        X_train.size(), y_train.size(),
+        X_val.size(), y_val.size(),
+        X_test.size(), y_test.size(),
+    )
 
-    return ds_train, ds_val, ds_test, categories,emotion_weights,sentiment_weights
+    # Place Tensors to Dataset
+    logger.info('Tensors is being placed to DataLoaders')
+
+    dl_train = DataLoader(
+        TensorDataset(X_train, y_train),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    dl_val = DataLoader(
+        TensorDataset(X_val, y_val),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    dl_test = DataLoader(
+        TensorDataset(X_test, y_test),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    logger.info('Tensors have been placed to DataLoaders')
+    return ds_train, ds_val, ds_test, categories, emotion_weights,sentiment_weights
