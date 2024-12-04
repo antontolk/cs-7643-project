@@ -6,7 +6,12 @@ import torch
 from torch import nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchmetrics.classification import MulticlassF1Score, MulticlassConfusionMatrix
+from torchmetrics.classification import (
+    MulticlassF1Score,
+    MulticlassConfusionMatrix,
+    MulticlassPrecision,
+    MulticlassRecall,
+)
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -183,6 +188,22 @@ def model_training(
             num_classes=n_sentiment_classes,
             average='weighted',
         ).to(device)
+        train_emotion_precision = MulticlassPrecision(
+            num_classes=n_emotion_classes,
+            average='macro',
+        ).to(device)
+        train_sentiment_precision = MulticlassPrecision(
+            num_classes=n_sentiment_classes,
+            average='macro',
+        ).to(device)
+        train_emotion_recall = MulticlassRecall(
+            num_classes=n_emotion_classes,
+            average='macro',
+        ).to(device)
+        train_sentiment_recall = MulticlassRecall(
+            num_classes=n_sentiment_classes,
+            average='macro',
+        ).to(device)
 
         for batch_X, batch_y in dl_train:
             # Move batches to the device
@@ -225,6 +246,10 @@ def model_training(
             train_sentiment_f1_macro.update(y_pred_sentiment, sentiment_labels)
             train_emotion_f1_weighted.update(y_pred_emotion, emotion_labels)
             train_sentiment_f1_weighted.update(y_pred_sentiment, sentiment_labels)
+            train_emotion_precision.update(y_pred_emotion, emotion_labels)
+            train_sentiment_precision.update(y_pred_sentiment, sentiment_labels)
+            train_emotion_recall.update(y_pred_emotion, emotion_labels)
+            train_sentiment_recall.update(y_pred_sentiment, sentiment_labels)
 
         # Compute training metrics
         epoch_train_loss = train_loss / len(dl_train)
@@ -235,6 +260,10 @@ def model_training(
         train_sentiment_macro_f1 = train_sentiment_f1_macro.compute().item()
         train_emotion_weighted_f1 = train_emotion_f1_weighted.compute().item()
         train_sentiment_weighted_f1 = train_sentiment_f1_weighted.compute().item()
+        train_emotion_precision_value = train_emotion_precision.compute().item()
+        train_sentiment_precision_value = train_sentiment_precision.compute().item()
+        train_emotion_recall_value = train_emotion_recall.compute().item()
+        train_sentiment_recall_value = train_sentiment_recall.compute().item()
 
         # Log the metrics
         logger.info(
@@ -242,14 +271,22 @@ def model_training(
             'Loss: %.4f | '
             'Emotion Accuracy: %.4f | '
             'Sentiment Accuracy: %.4f | '
+            'Emotion Precision: %.4f | '
+            'Sentiment Precision: %.4f | '
+            'Emotion Recall: %.4f | '
+            'Sentiment Recall: %.4f | '
             'Emotion Macro F1: %.4f | '
             'Sentiment Macro F1: %.4f | '
             'Emotion Weighted F1: %.4f | '
-            'Sentiment Weighted F1: %.4f | ',
+            'Sentiment Weighted F1: %.4f',
             epoch + 1, epochs,
             epoch_train_loss,
             epoch_train_emotion_accuracy,
             epoch_train_sentiment_accuracy,
+            train_emotion_precision_value,
+            train_sentiment_precision_value,
+            train_emotion_recall_value,
+            train_sentiment_recall_value,
             train_emotion_macro_f1,
             train_sentiment_macro_f1,
             train_emotion_weighted_f1,
@@ -263,6 +300,10 @@ def model_training(
             'loss': [epoch_train_loss],
             'emotion_accuracy': [epoch_train_emotion_accuracy],
             'sentiment_accuracy': [epoch_train_sentiment_accuracy],
+            'emotion_precision': [train_emotion_precision_value],
+            'sentiment_precision': [train_sentiment_precision_value],
+            'emotion_recall': [train_emotion_recall_value],
+            'sentiment_recall': [train_sentiment_recall_value],
             'emotion_macro_f1': [train_emotion_macro_f1],
             'sentiment_macro_f1': [train_sentiment_macro_f1],
             'emotion_weighted_f1': [train_emotion_weighted_f1],
@@ -274,6 +315,10 @@ def model_training(
         train_sentiment_f1_macro.reset()
         train_emotion_f1_weighted.reset()
         train_sentiment_f1_weighted.reset()
+        train_emotion_precision.reset()
+        train_sentiment_precision.reset()
+        train_emotion_recall.reset()
+        train_sentiment_recall.reset()
 
         #######################################################################
         # Validation loop
@@ -298,6 +343,22 @@ def model_training(
         val_sentiment_f1_weighted = MulticlassF1Score(
             num_classes=n_sentiment_classes,
             average='weighted',
+        ).to(device)
+        val_emotion_precision = MulticlassPrecision(
+            num_classes=n_emotion_classes,
+            average='macro',
+        ).to(device)
+        val_sentiment_precision = MulticlassPrecision(
+            num_classes=n_sentiment_classes,
+            average='macro',
+        ).to(device)
+        val_emotion_recall = MulticlassRecall(
+            num_classes=n_emotion_classes,
+            average='macro',
+        ).to(device)
+        val_sentiment_recall = MulticlassRecall(
+            num_classes=n_sentiment_classes,
+            average='macro',
         ).to(device)
 
         with torch.no_grad():
@@ -335,6 +396,10 @@ def model_training(
                 val_sentiment_f1_macro.update(y_pred_sentiment, sentiment_labels)
                 val_emotion_f1_weighted.update(y_pred_emotion, emotion_labels)
                 val_sentiment_f1_weighted.update(y_pred_sentiment, sentiment_labels)
+                val_emotion_precision.update(y_pred_emotion, emotion_labels)
+                val_sentiment_precision.update(y_pred_sentiment, sentiment_labels)
+                val_emotion_recall.update(y_pred_emotion, emotion_labels)
+                val_sentiment_recall.update(y_pred_sentiment, sentiment_labels)
 
         # Compute validation metrics
         epoch_val_loss = val_loss / len(dl_val)
@@ -346,12 +411,20 @@ def model_training(
         val_sentiment_macro_f1 = val_sentiment_f1_macro.compute().item()
         val_emotion_weighted_f1 = val_emotion_f1_weighted.compute().item()
         val_sentiment_weighted_f1 = val_sentiment_f1_weighted.compute().item()
+        val_emotion_precision_value = val_emotion_precision.compute().item()
+        val_sentiment_precision_value = val_sentiment_precision.compute().item()
+        val_emotion_recall_value = val_emotion_recall.compute().item()
+        val_sentiment_recall_value = val_sentiment_recall.compute().item()
 
         # Reset metrics
         val_emotion_f1_macro.reset()
         val_sentiment_f1_macro.reset()
         val_emotion_f1_weighted.reset()
         val_sentiment_f1_weighted.reset()
+        val_emotion_precision.reset()
+        val_sentiment_precision.reset()
+        val_emotion_recall.reset()
+        val_sentiment_recall.reset()
 
         # Log the metrics
         logger.info(
@@ -359,6 +432,10 @@ def model_training(
             'Loss: %.4f | '
             'Emotion Accuracy: %.4f | '
             'Sentiment Accuracy: %.4f | '
+            'Emotion Precision: %.4f | '
+            'Sentiment Precision: %.4f | '
+            'Emotion Recall: %.4f | '
+            'Sentiment Recall: %.4f | '
             'Emotion Macro F1: %.4f | '
             'Sentiment Macro F1: %.4f | '
             'Emotion Weighted F1: %.4f | '
@@ -367,18 +444,27 @@ def model_training(
             epoch_val_loss,
             epoch_val_emotion_accuracy,
             epoch_val_sentiment_accuracy,
+            val_emotion_precision_value,
+            val_sentiment_precision_value,
+            val_emotion_recall_value,
+            val_sentiment_recall_value,
             val_emotion_macro_f1,
             val_sentiment_macro_f1,
             val_emotion_weighted_f1,
             val_sentiment_weighted_f1,
         )
 
+        # Save metrics to DataFrame
         df_val = pd.DataFrame({
             'epoch': [epoch + 1],
             'type': ['val'],
             'loss': [epoch_val_loss],
             'emotion_accuracy': [epoch_val_emotion_accuracy],
             'sentiment_accuracy': [epoch_val_sentiment_accuracy],
+            'emotion_precision': [val_emotion_precision_value],
+            'sentiment_precision': [val_sentiment_precision_value],
+            'emotion_recall': [val_emotion_recall_value],
+            'sentiment_recall': [val_sentiment_recall_value],
             'emotion_macro_f1': [val_emotion_macro_f1],
             'sentiment_macro_f1': [val_sentiment_macro_f1],
             'emotion_weighted_f1': [val_emotion_weighted_f1],
@@ -409,6 +495,22 @@ def model_training(
     test_sentiment_f1_weighted = MulticlassF1Score(
         num_classes=n_sentiment_classes,
         average='weighted',
+    ).to(device)
+    test_emotion_precision = MulticlassPrecision(
+        num_classes=n_emotion_classes,
+        average='macro',
+    ).to(device)
+    test_sentiment_precision = MulticlassPrecision(
+        num_classes=n_sentiment_classes,
+        average='macro',
+    ).to(device)
+    test_emotion_recall = MulticlassRecall(
+        num_classes=n_emotion_classes,
+        average='macro',
+    ).to(device)
+    test_sentiment_recall = MulticlassRecall(
+        num_classes=n_sentiment_classes,
+        average='macro',
     ).to(device)
 
     test_emotion_cm = MulticlassConfusionMatrix(
@@ -451,6 +553,10 @@ def model_training(
             test_sentiment_f1_macro.update(y_pred_sentiment, sentiment_labels)
             test_emotion_f1_weighted.update(y_pred_emotion, emotion_labels)
             test_sentiment_f1_weighted.update(y_pred_sentiment, sentiment_labels)
+            test_emotion_precision.update(y_pred_emotion, emotion_labels)
+            test_sentiment_precision.update(y_pred_sentiment, sentiment_labels)
+            test_emotion_recall.update(y_pred_emotion, emotion_labels)
+            test_sentiment_recall.update(y_pred_sentiment, sentiment_labels)
 
             # Update confusion matrices
             test_emotion_cm.update(y_pred_emotion, emotion_labels)
@@ -465,12 +571,10 @@ def model_training(
     test_sentiment_macro_f1 = test_sentiment_f1_macro.compute().item()
     test_emotion_weighted_f1 = test_emotion_f1_weighted.compute().item()
     test_sentiment_weighted_f1 = test_sentiment_f1_weighted.compute().item()
-
-    # Reset metrics
-    test_emotion_f1_macro.reset()
-    test_sentiment_f1_macro.reset()
-    test_emotion_f1_weighted.reset()
-    test_sentiment_f1_weighted.reset()
+    test_emotion_precision_value = test_emotion_precision.compute().item()
+    test_sentiment_precision_value = test_sentiment_precision.compute().item()
+    test_emotion_recall_value = test_emotion_recall.compute().item()
+    test_sentiment_recall_value = test_sentiment_recall.compute().item()
 
     # Log the metrics
     logger.info(
@@ -478,6 +582,10 @@ def model_training(
         'Loss: %.4f | '
         'Emotion Accuracy: %.4f | '
         'Sentiment Accuracy: %.4f | '
+        'Emotion Precision: %.4f | '
+        'Sentiment Precision: %.4f | '
+        'Emotion Recall: %.4f | '
+        'Sentiment Recall: %.4f | '
         'Emotion Macro F1: %.4f | '
         'Sentiment Macro F1: %.4f | '
         'Emotion Weighted F1: %.4f | '
@@ -486,6 +594,10 @@ def model_training(
         epoch_test_loss,
         epoch_test_emotion_accuracy,
         epoch_test_sentiment_accuracy,
+        test_emotion_precision_value,
+        test_sentiment_precision_value,
+        test_emotion_recall_value,
+        test_sentiment_recall_value,
         test_emotion_macro_f1,
         test_sentiment_macro_f1,
         test_emotion_weighted_f1,
@@ -498,6 +610,10 @@ def model_training(
         'loss': [epoch_test_loss],
         'emotion_accuracy': [epoch_test_emotion_accuracy],
         'sentiment_accuracy': [epoch_test_sentiment_accuracy],
+        'emotion_precision': [test_emotion_precision_value],
+        'sentiment_precision': [test_sentiment_precision_value],
+        'emotion_recall': [test_emotion_recall_value],
+        'sentiment_recall': [test_sentiment_recall_value],
         'emotion_macro_f1': [test_emotion_macro_f1],
         'sentiment_macro_f1': [test_sentiment_macro_f1],
         'emotion_weighted_f1': [test_emotion_weighted_f1],

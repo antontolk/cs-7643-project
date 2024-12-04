@@ -36,8 +36,8 @@ class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
     utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
-    lemmatization: bool = False
-    ngram: tuple = (1, 1)
+    lemmatization: bool = True
+    ngram: tuple = (1, 5)
     stop_words: str = 'english'
     remove_punc_signs: bool = False          # Remove punctuation, signs
     strip: bool = True
@@ -51,14 +51,14 @@ class DatasetProcessing(BaseSettings):
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
     type: str = 'fc'        # fc - Fully Connected
-    hidden: int = 4096      # The size of the hidden layer
+    hidden_size: int = 32      # The size of the hidden layer
 
 
 class TrainingSettings(BaseSettings):
     """The Training Settings"""
-    epochs: int = 10
+    epochs: int = 30
     lr: float = 0.001
-    weight_decay: float = 1e-5
+    weight_decay: float = 1e-2
     # ce - Cross Entropy, 'wce' - Weighted Cross Entropy,
     # 'focal' - Focal Loss, 'label_smoothing' - Label Smoothing Loss
     criterion_type: str = 'wce'
