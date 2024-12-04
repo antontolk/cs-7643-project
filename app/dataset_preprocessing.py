@@ -435,42 +435,5 @@ def meld_processing(
         )
     logger.info('Tensors have been placed to DataLoaders')
 
-    
-    ######################################################################
-    # Convert NumPy arrays to PyTorch tensors
-    logger.info('NumPy arrays is being converted to PyTorch tensors')
-    X_train = torch.from_numpy(X_train).float()
-    y_train = torch.from_numpy(y_train).long()
-    X_val = torch.from_numpy(X_val).float()
-    y_val = torch.from_numpy(y_val).long()
-    X_test = torch.from_numpy(X_test).float()
-    y_test = torch.from_numpy(y_test).long()
-
-    logger.info(
-        'NumPy arrays have been converted to PyTorch tensors. X_train: %s.'
-        'y_train: %s. X_val: %s. y_val: %s. X_test: %s. y_test: %s',
-        X_train.size(), y_train.size(),
-        X_val.size(), y_val.size(),
-        X_test.size(), y_test.size(),
-    )
-
-    # Place Tensors to Dataset
-    logger.info('Tensors is being placed to DataLoaders')
-
-    dl_train = DataLoader(
-        TensorDataset(X_train, y_train),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    dl_val = DataLoader(
-        TensorDataset(X_val, y_val),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    dl_test = DataLoader(
-        TensorDataset(X_test, y_test),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    logger.info('Tensors have been placed to DataLoaders')
     return ds_train, ds_val, ds_test, categories
+   
