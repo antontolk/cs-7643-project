@@ -1,20 +1,10 @@
-from pathlib import Path
 import logging
 
 from app.data_load import load_dataset
-from app.dataset_preprocessing import meld_processing
-from app.training import model_training
 from app.bert_training import bert_model_training
-from app.model_fc import FullyConnectedNet
 from app.bert_model import BERT_Arch
-from app.settings import Settings
-from app.logging_config import logger_config
 from transformers import AutoModel, BertTokenizerFast
 
-from app.dataset_preprocessing import meld_processing
-from app.training import model_training
-from app.model_fc import FullyConnectedNet
-from app.tokenizer_bpe import TokenizerBPE
 from app.tokenizer_word import TokenizerWord
 
 
@@ -28,6 +18,32 @@ import argparse
 
 logger = logging.getLogger(__name__)
 logger_config(logger)
+
+class BertModelTrainer:
+    @staticmethod
+    def train_bert_model(settings, dl_train, dl_val, dl_test, categories):
+        bert = AutoModel.from_pretrained('bert-base-uncased')
+        model = BERT_Arch(
+            bert,
+            labels=settings.data_preprocessing.labels,
+            n_classes=[
+                len(categories['emotions']),
+                len(categories['sentiments']),
+            ]
+        )
+        bert_model_training(
+            model=model,
+            dl_train=dl_train,
+            dl_val=dl_val,
+            dl_test=dl_test,
+            epochs=settings.bert_training.epochs,
+            criterion_type=settings.bert_training.criterion_type,
+            lr=settings.bert_training.lr,
+            optimiser_val=settings.bert_training.optimiser_val
+        )
+
+        # visualize here
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Sentiment Analysis')
@@ -75,6 +91,7 @@ if __name__ == '__main__':
     )
 
     # Create the model
+
     if settings.model.type == 'fc':
         model = FullyConnectedNet(
             n_features=dl_train.dataset[0][0].shape[0],
@@ -85,22 +102,8 @@ if __name__ == '__main__':
                 len(categories['sentiments']),
             ],
         )
-    elif settings.model.type == 'bert':
-        bert = AutoModel.from_pretrained('bert-base-uncased')
-        model = BERT_Arch(
-            bert,
-            labels=settings.data_preprocessing.labels,
-            n_classes=[
-                len(categories['emotions']),
-                len(categories['sentiments']),
-            ]
-        )
-    else:
-        raise ValueError('Not supported model type.')
-    logger.info(model)
-
-    # Train the model
-    if settings.model.type == 'fc':
+        logger.info(model)
+        # Train the model
         df_results, cm = model_training(
             model=model,
             dl_train=dl_train,
@@ -124,14 +127,7 @@ if __name__ == '__main__':
             output_dir=settings.output_dir_path,
         )
     elif settings.model.type == 'bert':
-        bert_model_training(
-            model=model,
-            dl_train=dl_train,
-            dl_val=dl_val,
-            dl_test=dl_test,
-            epochs=settings.bert_training.epochs,
-            criterion_type=settings.bert_training.criterion_type,
-            lr=settings.bert_training.lr,
-            optimiser_val=settings.bert_training.optimiser_val
+        BertModelTrainer().train_bert_model(settings, dl_train, dl_val, dl_test, categories)
+    else:
+        raise ValueError('Not supported model type.')
 
-        )
