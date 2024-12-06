@@ -37,7 +37,7 @@ class DatasetProcessing(BaseSettings):
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
     utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
     lemmatization: bool = True
-    ngram: tuple = (1, 1)
+    ngram: tuple = (1, 5)
     stop_words: str = 'english'
     remove_punc_signs: bool = False          # Remove punctuation, signs
     strip: bool = True
@@ -51,21 +51,31 @@ class DatasetProcessing(BaseSettings):
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
     type: str = 'fc'        # fc - Fully Connected
-    hidden: int = 4096      # The size of the hidden layer
+    hidden_size: int = 16      # The size of the hidden layer
 
 
 class TrainingSettings(BaseSettings):
     """The Training Settings"""
-    epochs: int = 100
+    epochs: int = 30
     lr: float = 0.001
-    criterion_type: str = 'ce'  # ce - Cross Entropy
+    weight_decay: float = 1e-2
+    # ce - Cross Entropy, 'wce' - Weighted Cross Entropy,
+    # 'focal' - Focal Loss, 'label_smoothing' - Label Smoothing Loss
+    criterion_type: str = 'wce'
+    labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
 
 
 class Settings(BaseSettings):
     """Application settings."""
     dev: bool = False
+    output_dir: str = 'results'
 
     data_load: DataLoadSettings = DataLoadSettings()
     data_preprocessing: DatasetProcessing = DatasetProcessing()
     model: ModelSettings = ModelSettings()
     training: TrainingSettings = TrainingSettings()
+
+    @property
+    def output_dir_path(self) -> Path:
+        """Returns a path to the output folder"""
+        return module_root / '..' / self.output_dir
