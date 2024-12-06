@@ -16,7 +16,6 @@ from torchmetrics.classification import (
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from torch.utils.data import TensorDataset, DataLoader
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
