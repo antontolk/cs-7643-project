@@ -17,6 +17,7 @@ from app.training import model_training
 from app.model_fc import FullyConnectedNet
 from app.model_cnn import CNN1DNet
 from app.settings import Settings
+from app.visualisation import visualisation
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ if __name__ == '__main__':
         model = FullyConnectedNet(
             n_features=dl_train.dataset[0][0].shape[0],
             labels=settings.data_preprocessing.labels,
-            hidden=2048,
+            hidden=settings.model.hidden_size,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     logger.info(model)
 
     # Train the model
-    model_training(
+    df_results, cm = model_training(
         model=model,
         dl_train=dl_train,
         dl_val=dl_val,
@@ -99,10 +100,23 @@ if __name__ == '__main__':
         epochs=settings.training.epochs,
         criterion_type=settings.training.criterion_type,
         lr=settings.training.lr,
+        weight_decay=settings.training.weight_decay,
+        labels=settings.training.labels,
+        n_classes=[
+            len(categories['emotions']),
+            len(categories['sentiments']),
+        ],
     )
-    
+
     torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
     
     # this is to load on cpu
     #device = torch.device("cpu")
     #model.load_state_dict(torch.load("cnn1d_model.pth", map_location=device)) 
+
+    visualisation(
+        df=df_results,
+        cm=cm,
+        labels=settings.training.labels,
+        output_dir=settings.output_dir_path,
+    )
