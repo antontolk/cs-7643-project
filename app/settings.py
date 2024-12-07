@@ -50,8 +50,9 @@ class DatasetProcessing(BaseSettings):
 
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
-    type: str = 'fc'        # fc - Fully Connected
-    hidden_size: int = 16      # The size of the hidden layer
+    type: str = 'fc'        # fc - Fully Connected                  # cnn - CNN 1D
+    hidden_size: int = 4096      # The size of the hidden layer
+      
 
 
 class TrainingSettings(BaseSettings):
