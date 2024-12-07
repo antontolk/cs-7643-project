@@ -35,7 +35,7 @@ class DataLoadSettings(BaseSettings):
 class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
-    utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
+    utterance_processing: str = 'word'     # Options: counts, TF-IDF, word, BPE
     lemmatization: bool = True
     ngram: tuple = (1, 5)
     stop_words: str = 'english'
@@ -44,13 +44,13 @@ class DatasetProcessing(BaseSettings):
     tokens_in_sentence: int = 30            # The size of the sentence (BPE, Word only)
     encode_speakers: bool = True            # Will add speakers to samples
     top_n_speakers: int = 10                # Only Top N speakers will be considered
-    batch_size: int = 64
+    batch_size: int = 32
     shuffle: bool = True
 
 
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
-    type: str = 'fc'        # fc - Fully Connected
+    type: str = 'transformer'        # transformer
     hidden_size: int = 16      # The size of the hidden layer
 
 

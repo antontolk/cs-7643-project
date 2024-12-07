@@ -6,6 +6,7 @@ from app.data_load import load_dataset
 from app.dataset_preprocessing import meld_processing
 from app.training import model_training
 from app.model_fc import FullyConnectedNet
+from app.model_transformer import TransformerNet
 from app.tokenizer_bpe import TokenizerBPE
 from app.tokenizer_word import TokenizerWord
 
@@ -47,6 +48,7 @@ if __name__ == '__main__':
         tokens_in_sentence=settings.data_preprocessing.tokens_in_sentence,
         encode_speakers=settings.data_preprocessing.encode_speakers,
         top_n_speakers=settings.data_preprocessing.top_n_speakers,
+        batch_size=settings.data_preprocessing.batch_size
     )
 
     # Word Tokenization
@@ -57,7 +59,12 @@ if __name__ == '__main__':
         unk_token="[UNK]",
         path='vocab_word.json',
     )
+    
+    word_tokenizer.fit(df_train['Utterance'])
+    vocab_size = word_tokenizer.vocab_size
 
+    max_len = max(data[0].shape[0] for data in dl_train.dataset)
+    
     # Create the model
     if settings.model.type == 'fc':
         model = FullyConnectedNet(
@@ -68,6 +75,20 @@ if __name__ == '__main__':
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
+        )
+    elif settings.model.type == 'transformer':
+        model = TransformerNet(
+            vocab_size=vocab_size,
+            n_features=256,
+            hidden=settings.model.hidden_size,
+            labels=settings.data_preprocessing.labels,
+            n_classes=[
+                len(categories['emotions']),
+                len(categories['sentiments']),
+            ],
+            nhead=4,
+            num_layers=2,
+            max_len=max_len
         )
     else:
         raise ValueError('Not supported model type.')
