@@ -3,13 +3,15 @@ import logging
 import regex as re
 
 import torch
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from transformers import AutoModel, BertTokenizerFast
+
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import spacy
-
+from sklearn.utils.class_weight import compute_class_weight
 from app.tokenizer_bpe import TokenizerBPE
 from app.tokenizer_word import TokenizerWord
 from app.logging_config import logger_config
@@ -103,6 +105,56 @@ def meld_processing(
     df_val['Sentiment'] = df_val['Sentiment'].map(sentiments)
     df_test['Sentiment'] = df_test['Sentiment'].map(sentiments)
     logger.info('Sentiments categories have been replaced')
+    ###########################################################################
+    # For BERT
+    if utterance_processing == 'bert':
+        logger.info(
+            'Utterances are being transformed using BERT')
+        remove_punc_signs = False
+        strip = False
+        lemmatization = False
+        encode_speakers = False
+        train_text = df_train['Utterance']
+        val_text= df_val['Utterance']
+        test_text = df_test['Utterance']
+        
+        bert = AutoModel.from_pretrained('bert-base-uncased')
+        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+        
+        # Tokenize and encode sequences in the training set
+        tokens_train = tokenizer.batch_encode_plus(
+            train_text.tolist(),
+            max_length=25,
+            pad_to_max_length=True,
+            truncation=True
+        )
+        logger.info('Tokenized and encoded sequences in the training set.')
+        # Tokenize and encode sequences in the validation set
+        tokens_val = tokenizer.batch_encode_plus(
+            val_text.tolist(),
+            max_length=25,
+            pad_to_max_length=True,
+            truncation=True
+        )
+        logger.info('Tokenized and encoded sequences in the val set.')
+        # Tokenize and encode sequences in the test set
+        tokens_test = tokenizer.batch_encode_plus(
+            test_text.tolist(),
+            max_length=25,
+            pad_to_max_length=True,
+            truncation=True
+        )
+        logger.info('Tokenized and encoded sequences in the test set.')
+        train_seq = torch.tensor(tokens_train['input_ids'])
+        train_mask = torch.tensor(tokens_train['attention_mask'])
+        val_seq = torch.tensor(tokens_val['input_ids'])
+        val_mask = torch.tensor(tokens_val['attention_mask'])
+        test_seq = torch.tensor(tokens_test['input_ids'])
+        test_mask = torch.tensor(tokens_test['attention_mask'])
+        logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
+            f"Val shape: {val_seq.shape}, {val_mask.shape}; "
+            f"Test shape: {test_seq.shape}, {test_mask.shape}")
+        
 
     ###########################################################################
     # Remove punctuations and signs
@@ -342,6 +394,9 @@ def meld_processing(
     ######################################################################
     # Convert NumPy arrays to PyTorch tensors
     logger.info('NumPy arrays is being converted to PyTorch tensors')
+    logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
+            f"train label shape: {y_train.shape}")
+
     
     X_train = torch.from_numpy(X_train).type(tensor_type)
     X_val = torch.from_numpy(X_val).type(tensor_type)
@@ -350,34 +405,48 @@ def meld_processing(
     y_train = torch.from_numpy(y_train).long()
     y_val = torch.from_numpy(y_val).long()
     y_test = torch.from_numpy(y_test).long()
+    
+    if utterance_processing == 'bert':
+        assert train_seq.size(0) == train_mask.size(0) == y_train.size(0), "Mismatch in tensor sizes!"
+        train_data = TensorDataset(train_seq, train_mask, y_train)
+        val_data = TensorDataset(val_seq, val_mask, y_val)
+        test_data = TensorDataset(test_seq, test_mask, y_test)
+    else:
+        X_train = torch.from_numpy(X_train).float()
+        X_val = torch.from_numpy(X_val).float()
+        X_test = torch.from_numpy(X_test).float()
 
-    logger.info(
-        'NumPy arrays have been converted to PyTorch tensors. X_train: %s.'
-        'y_train: %s. X_val: %s. y_val: %s. X_test: %s. y_test: %s',
-        X_train.size(), y_train.size(),
-        X_val.size(), y_val.size(),
-        X_test.size(), y_test.size(),
-    )
+        logger.info(
+            'NumPy arrays have been converted to PyTorch tensors. X_train: %s.'
+            'y_train: %s. X_val: %s. y_val: %s. X_test: %s. y_test: %s',
+            X_train.size(), y_train.size(),
+            X_val.size(), y_val.size(),
+            X_test.size(), y_test.size(),
+        )
 
     # Place Tensors to Dataset
     logger.info('Tensors is being placed to DataLoaders')
-
-    dl_train = DataLoader(
-        TensorDataset(X_train, y_train),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    dl_val = DataLoader(
-        TensorDataset(X_val, y_val),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    dl_test = DataLoader(
-        TensorDataset(X_test, y_test),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
+    if utterance_processing == 'bert':
+        ds_train = DataLoader(train_data, shuffle=shuffle, batch_size=batch_size)
+        ds_val = DataLoader(val_data, shuffle=shuffle, batch_size=batch_size)
+        ds_test = DataLoader(test_data, shuffle=shuffle, batch_size=batch_size)
+    else:
+        ds_train = DataLoader(
+            TensorDataset(X_train, y_train),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+        ds_val = DataLoader(
+            TensorDataset(X_val, y_val),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+        ds_test = DataLoader(
+            TensorDataset(X_test, y_test),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
     logger.info('Tensors have been placed to DataLoaders')
 
-    return dl_train, dl_val, dl_test, categories
-
+    return ds_train, ds_val, ds_test, categories
+   

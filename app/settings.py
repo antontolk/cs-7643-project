@@ -65,6 +65,13 @@ class TrainingSettings(BaseSettings):
     criterion_type: str = 'wce'
     labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
 
+class BertTrainingSettings(BaseSettings):
+    """The Training Settings"""
+    epochs: int = 10
+    lr: float = 0.001
+    criterion_type: str = 'ce'  # ce - Cross Entropy
+    optimiser_val: str ='AdamW'
+
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -75,6 +82,8 @@ class Settings(BaseSettings):
     data_preprocessing: DatasetProcessing = DatasetProcessing()
     model: ModelSettings = ModelSettings()
     training: TrainingSettings = TrainingSettings()
+    bert_training: BertTrainingSettings = BertTrainingSettings()
+
 
     @property
     def output_dir_path(self) -> Path:
