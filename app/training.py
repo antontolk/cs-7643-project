@@ -117,7 +117,7 @@ def model_training(
     # Collect the training labels to compute class weights
     emotion_labels = []
     sentiment_labels = []
-    for _, batch_y in dl_train:
+    for _, _, batch_y in dl_train:
         emotion_labels.append(batch_y[:, 0])
         sentiment_labels.append(batch_y[:, 1])
     emotion_labels = torch.cat(emotion_labels)
@@ -207,9 +207,10 @@ def model_training(
             average='macro',
         ).to(device)
 
-        for batch_X, batch_y in dl_train:
+        for batch_X_utterance, batch_X_speaker, batch_y in dl_train:
             # Move batches to the device
-            batch_X = batch_X.to(device)
+            batch_X_utterance = batch_X_utterance.to(device)
+            batch_X_speaker = batch_X_speaker.to(device)
             emotion_labels = batch_y[:, 0].to(device)
             sentiment_labels = batch_y[:, 1].to(device)
 
@@ -217,7 +218,7 @@ def model_training(
             optimizer.zero_grad()
 
             # Forward pass
-            out_emotion, out_sentiment = model(batch_X)
+            out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
 
             # Loss
             loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -364,14 +365,15 @@ def model_training(
         ).to(device)
 
         with torch.no_grad():
-            for batch_X, batch_y in dl_val:
+            for batch_X_utterance, batch_X_speaker, batch_y in dl_val:
                 # Move batches to the device
-                batch_X = batch_X.to(device)
+                batch_X_utterance = batch_X_utterance.to(device)
+                batch_X_speaker = batch_X_speaker.to(device)
                 emotion_labels = batch_y[:, 0].to(device)
                 sentiment_labels = batch_y[:, 1].to(device)
 
                 # Forward pass
-                out_emotion, out_sentiment = model(batch_X)
+                out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
 
                 # Loss
                 loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -523,12 +525,13 @@ def model_training(
     ).to(device)
 
     with torch.no_grad():
-        for batch_X, batch_y in dl_test:
-            batch_X = batch_X.to(device)
+        for batch_X_utterance, batch_X_speaker, batch_y in dl_test:
+            batch_X_utterance = batch_X_utterance.to(device)
+            batch_X_speaker = batch_X_speaker.to(device)
             emotion_labels = batch_y[:, 0].to(device)
             sentiment_labels = batch_y[:, 1].to(device)
 
-            out_emotion, out_sentiment = model(batch_X)
+            out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
 
             # Loss
             loss = criterion_emotion(out_emotion, emotion_labels) \

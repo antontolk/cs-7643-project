@@ -219,9 +219,15 @@ def meld_processing(
             stop_words=stop_words,
         )
         count_vect.fit(df_train.loc[:, 'Utterance'])
-        X_train = count_vect.transform(df_train.loc[:, 'Utterance']).toarray()
-        X_val = count_vect.transform(df_val.loc[:, 'Utterance']).toarray()
-        X_test = count_vect.transform(df_test.loc[:, 'Utterance']).toarray()
+        X_train_utterance = count_vect.transform(
+            df_train.loc[:, 'Utterance']
+        ).toarray()
+        X_val_utterance = count_vect.transform(
+            df_val.loc[:, 'Utterance']
+        ).toarray()
+        X_test_utterance = count_vect.transform(
+            df_test.loc[:, 'Utterance']
+        ).toarray()
         categories['utterance'] = count_vect.get_feature_names_out()
         categories['vocab_size'] = len(count_vect.vocabulary_)
 
@@ -230,16 +236,18 @@ def meld_processing(
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
             categories['vocab_size'],
-            X_train.shape, X_val.shape, X_test.shape,
+            X_train_utterance.shape,
+            X_val_utterance.shape,
+            X_test_utterance.shape,
         )
         tensor_type = torch.float  
 
         # Normalise count values
         scaler = StandardScaler()
-        scaler.fit(X_train)
-        X_train = scaler.transform(X_train)
-        X_val = scaler.transform(X_val)
-        X_test = scaler.transform(X_test)
+        scaler.fit(X_train_utterance)
+        X_train_utterance = scaler.transform(X_train_utterance)
+        X_val_utterance = scaler.transform(X_val_utterance)
+        X_test_utterance = scaler.transform(X_test_utterance)
         categories['scaler'] = scaler.get_feature_names_out()
         logger.info('Count values have been normalised.')
 
@@ -252,9 +260,15 @@ def meld_processing(
             stop_words=stop_words,
         )
         vectorizer.fit(df_train.loc[:, 'Utterance'])
-        X_train = vectorizer.transform(df_train.loc[:, 'Utterance']).toarray()
-        X_val = vectorizer.transform(df_val.loc[:, 'Utterance']).toarray()
-        X_test = vectorizer.transform(df_test.loc[:, 'Utterance']).toarray()
+        X_train_utterance = vectorizer.transform(
+            df_train.loc[:, 'Utterance']
+        ).toarray()
+        X_val_utterance = vectorizer.transform(
+            df_val.loc[:, 'Utterance']
+        ).toarray()
+        X_test_utterance = vectorizer.transform(
+            df_test.loc[:, 'Utterance']
+        ).toarray()
         categories['utterance'] = vectorizer.get_feature_names_out()
         categories['vocab_size'] = len(vectorizer.vocabulary_)
 
@@ -263,7 +277,9 @@ def meld_processing(
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
             categories['vocab_size'],
-            X_train.shape, X_val.shape, X_test.shape,
+            X_train_utterance.shape,
+            X_val_utterance.shape,
+            X_test_utterance.shape,
         )
 
     # Tokenization by Word
@@ -279,15 +295,15 @@ def meld_processing(
         )
         
         word_tokenizer.fit(df_train['Utterance'])
-        X_train = word_tokenizer.transform(
+        X_train_utterance = word_tokenizer.transform(
             df_train['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
-        X_val = word_tokenizer.transform(
+        X_val_utterance = word_tokenizer.transform(
             df_val['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
-        X_test = word_tokenizer.transform(
+        X_test_utterance = word_tokenizer.transform(
             df_test['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
@@ -300,7 +316,9 @@ def meld_processing(
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
             categories['vocab_size'],
-            X_train.shape, X_val.shape, X_test.shape,
+            X_train_utterance.shape,
+            X_val_utterance.shape,
+            X_test_utterance.shape,
         )
         
         tensor_type = torch.long
@@ -322,15 +340,15 @@ def meld_processing(
 
         # Prepare BPE tokens
         bpe_tokenizer.fit(df_train['Utterance'])
-        X_train = bpe_tokenizer.transform(
+        X_train_utterance = bpe_tokenizer.transform(
             df_train['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
-        X_val = bpe_tokenizer.transform(
+        X_val_utterance = bpe_tokenizer.transform(
             df_val['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
-        X_test = bpe_tokenizer.transform(
+        X_test_utterance = bpe_tokenizer.transform(
             df_test['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
@@ -342,7 +360,9 @@ def meld_processing(
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
             categories['vocab_size'],
-            X_train.shape, X_val.shape, X_test.shape,
+            X_train_utterance.shape,
+            X_val_utterance.shape,
+            X_test_utterance.shape,
         )
         
         tensor_type = torch.long
@@ -350,8 +370,7 @@ def meld_processing(
     #######################################################################
     # Convert Speaker columns to One-Hot vectors
     if encode_speakers:
-
-        # Leave only top N speakers, others will replaced by Other
+        # Leave only top N speakers, 'Other' will replace other speakers
         if top_n_speakers:
             top_n_speakers = df_train.loc[:, 'Speaker'].value_counts()\
                 .nlargest(top_n_speakers).index
@@ -377,29 +396,21 @@ def meld_processing(
         categories['speakers'] = encoder.categories_
         logger.info('Speakers categories: %s', encoder.categories_)
 
-        speaker_train = encoder.transform(
+        X_train_speaker = encoder.transform(
             df_train.loc[:, 'Speaker'].values.reshape(-1, 1)
         )
-        speaker_val = encoder.transform(
+        X_val_speaker = encoder.transform(
             df_val.loc[:, 'Speaker'].values.reshape(-1, 1)
         )
-        speaker_test = encoder.transform(
+        X_test_speaker = encoder.transform(
             df_test.loc[:, 'Speaker'].values.reshape(-1, 1)
         )
         logger.info(
-            'Speaker One-Hot vectors have been prepared. Train: %s. Val: %s. Test: %s',
-            speaker_train.shape, speaker_val.shape, speaker_test.shape,
-        )
-
-        # Concatenate to the dataset
-        X_train = np.concatenate([X_train, speaker_train], axis=1)
-        X_val = np.concatenate([X_val, speaker_val], axis=1)
-        X_test = np.concatenate([X_test, speaker_test], axis=1)
-
-        logger.info(
-            'Speaker One-Hot vectors have been added to datasets. Train: %s.'
-            'Val: %s. Test: %s',
-            X_train.shape, X_val.shape, X_test.shape,
+            'Speaker One-Hot vectors have been prepared. '
+            'Train: %s. Val: %s. Test: %s',
+            X_train_speaker.shape,
+            X_val_speaker.shape,
+            X_test_speaker.shape,
         )
 
     #######################################################################
@@ -416,10 +427,63 @@ def meld_processing(
     # Convert NumPy arrays to PyTorch tensors
     logger.info('NumPy arrays is being converted to PyTorch tensors')
 
+    # Utterance
+    X_train_utterance = torch.from_numpy(X_train_utterance).type(tensor_type)
+    X_val_utterance = torch.from_numpy(X_val_utterance).type(tensor_type)
+    X_test_utterance = torch.from_numpy(X_test_utterance).type(tensor_type)
+
+    # Speakers
+    if encode_speakers:
+        X_train_speaker = torch.from_numpy(X_train_speaker).type(tensor_type)
+        X_val_speaker = torch.from_numpy(X_val_speaker).type(tensor_type)
+        X_test_speaker = torch.from_numpy(X_test_speaker).type(tensor_type)
+    else:
+        X_train_speaker = torch.empty(0).type(tensor_type)
+        X_val_speaker = torch.empty(0).type(tensor_type)
+        X_test_speaker = torch.empty(0).type(tensor_type)
+
+    # Labels
     y_train = torch.from_numpy(y_train).long()
     y_val = torch.from_numpy(y_val).long()
     y_test = torch.from_numpy(y_test).long()
-    
+
+    logger.info(
+        'NumPy arrays have been converted to PyTorch tensors. '
+        'X_train_utterance: %s. X_val_utterance: %s. X_test_utterance: %s'
+        'X_train_speaker: %s. X_val_speaker: %s. X_test_speaker: %s'
+        'y_train: %s. y_val: %s. y_test: %s',
+        X_train_utterance.size(),
+        X_val_utterance.size(),
+        X_test_utterance.size(),
+        X_train_speaker.size(),
+        X_val_speaker.size(),
+        X_test_speaker.size(),
+        y_train.size(),
+        y_val.size(),
+        y_test.size(),
+    )
+
+    # Place Tensors to Dataset/DataLoader
+    logger.info('Tensors is being placed to DataLoaders')
+    ds_train = DataLoader(
+        TensorDataset(X_train_utterance, X_train_speaker, y_train),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    ds_val = DataLoader(
+        TensorDataset(X_val_utterance, X_val_speaker, y_val),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    ds_test = DataLoader(
+        TensorDataset(X_test_utterance, X_test_speaker, y_test),
+        batch_size=batch_size,
+        shuffle=shuffle,
+    )
+    logger.info('Tensors have been placed to DataLoaders')
+
+    # TODO: refactoring needed
+    # BERT Scenario
     if utterance_processing == 'bert':
         logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
                     f"train label shape: {y_train.shape}")
@@ -427,42 +491,10 @@ def meld_processing(
         train_data = TensorDataset(train_seq, train_mask, y_train)
         val_data = TensorDataset(val_seq, val_mask, y_val)
         test_data = TensorDataset(test_seq, test_mask, y_test)
-    else:
-        X_train = torch.from_numpy(X_train).type(tensor_type)
-        X_val = torch.from_numpy(X_val).type(tensor_type)
-        X_test = torch.from_numpy(X_test).type(tensor_type)
 
-        logger.info(
-            'NumPy arrays have been converted to PyTorch tensors. X_train: %s.'
-            'y_train: %s. X_val: %s. y_val: %s. X_test: %s. y_test: %s',
-            X_train.size(), y_train.size(),
-            X_val.size(), y_val.size(),
-            X_test.size(), y_test.size(),
-        )
-
-    # Place Tensors to Dataset/DataLoader
-    logger.info('Tensors is being placed to DataLoaders')
-    if utterance_processing == 'bert':
         ds_train = DataLoader(train_data, shuffle=shuffle, batch_size=batch_size)
         ds_val = DataLoader(val_data, shuffle=shuffle, batch_size=batch_size)
         ds_test = DataLoader(test_data, shuffle=shuffle, batch_size=batch_size)
-    else:
-        ds_train = DataLoader(
-            TensorDataset(X_train, y_train),
-            batch_size=batch_size,
-            shuffle=shuffle,
-        )
-        ds_val = DataLoader(
-            TensorDataset(X_val, y_val),
-            batch_size=batch_size,
-            shuffle=shuffle,
-        )
-        ds_test = DataLoader(
-            TensorDataset(X_test, y_test),
-            batch_size=batch_size,
-            shuffle=shuffle,
-        )
-    logger.info('Tensors have been placed to DataLoaders')
 
     return ds_train, ds_val, ds_test, categories
    

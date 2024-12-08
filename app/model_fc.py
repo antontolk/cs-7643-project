@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 
@@ -47,8 +48,11 @@ class FullyConnectedNet(nn.Module):
                 nn.Linear(hidden, n_classes[labels.index('Sentiment')]),
             )
 
-    def forward(self, x):
+    def forward(self, x_utterance, x_speaker):
         """Network forward pass"""
+        # Concat inputs
+        x = torch.cat((x_utterance, x_speaker), dim=1)
+
         x = self.linear_1(x)
         out_emotion = self.emotion_head(x)
         out_sentiment = self.sentiment_head(x)

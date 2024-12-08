@@ -78,7 +78,7 @@ if __name__ == '__main__':
     # Create the model
     if settings.model.type == 'fc':
         model = FullyConnectedNet(
-            n_features=dl_train.dataset[0][0].shape[0],
+            n_features=dl_train.dataset[0][0].shape[0] + dl_train.dataset[0][1].shape[0],
             labels=settings.data_preprocessing.labels,
             hidden=settings.model.hidden_size,
             n_classes=[
