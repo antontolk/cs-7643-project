@@ -1,13 +1,8 @@
 import logging
 
-import argparse
-import torch
-from transformers import AutoModel, BertTokenizerFast
-
 from app.data_load import load_dataset
 from app.dataset_preprocessing import meld_processing
-from app.bert_training import bert_model_training
-from app.bert_model import BERT_Arch
+from app.bert_model import BertlNet
 from app.model_fc import FullyConnectedNet
 from app.model_cnn import CNN1DNet
 from app.model_transformer import TransformerNet
@@ -18,31 +13,6 @@ from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
 logger_config(logger)
-
-class BertModelTrainer:
-    @staticmethod
-    def train_bert_model(settings, dl_train, dl_val, dl_test, categories):
-        bert = AutoModel.from_pretrained('bert-base-uncased')
-        model = BERT_Arch(
-            bert,
-            labels=settings.data_preprocessing.labels,
-            n_classes=[
-                len(categories['emotions']),
-                len(categories['sentiments']),
-            ]
-        )
-        bert_model_training(
-            model=model,
-            dl_train=dl_train,
-            dl_val=dl_val,
-            dl_test=dl_test,
-            epochs=settings.bert_training.epochs,
-            criterion_type=settings.bert_training.criterion_type,
-            lr=settings.bert_training.lr,
-            optimiser_val=settings.bert_training.optimiser_val
-        )
-
-        # visualize here
 
 
 if __name__ == '__main__':
@@ -72,7 +42,8 @@ if __name__ == '__main__':
         tokens_in_sentence=settings.data_preprocessing.tokens_in_sentence,
         encode_speakers=settings.data_preprocessing.encode_speakers,
         top_n_speakers=settings.data_preprocessing.top_n_speakers,
-        batch_size=settings.data_preprocessing.batch_size
+        batch_size=settings.data_preprocessing.batch_size,
+        bert_model_name=settings.data_preprocessing.bert_model_name,
     )
 
     # Create the model
@@ -124,43 +95,45 @@ if __name__ == '__main__':
         )
         logger.info('Fully Connected model initiated. \n %s', model)
     elif settings.model.type == 'bert':
-        # TODO: BERT model init
-        
-        # TODO: Created unified training procedure
-        BertModelTrainer().train_bert_model(settings, dl_train, dl_val, dl_test, categories) 
+        model = BertlNet(
+            bert_model_name=settings.data_preprocessing.bert_model_name,
+            n_speakers=settings.data_preprocessing.top_n_speakers + 1,
+            n_emotion_classes=len(categories['emotions']),
+            n_sentiment_classes=len(categories['sentiments']),
+            dropout_rate=settings.model.dropout_rate,
+        )
     else:
         raise ValueError('Not supported model type.')
 
-    # Train and visualise FC and CNN models
-    if settings.model.type in ['fc', 'cnn', 'transformer']:
-        # Train the model
-        # TODO: return the trained model
-        df_results, cm, best_model = model_training(
-            model=model,
-            dl_train=dl_train,
-            dl_val=dl_val,
-            dl_test=dl_test,
-            epochs=settings.training.epochs,
-            criterion_type=settings.training.criterion_type,
-            lr=settings.training.lr,
-            weight_decay=settings.training.weight_decay,
-            labels=settings.data_preprocessing.labels,
-            n_classes=[
-                len(categories['emotions']),
-                len(categories['sentiments']),
-            ],
-        )
-    
-        visualisation(
-            df=df_results,
-            cm=cm,
-            labels=settings.data_preprocessing.labels,
-            output_dir=settings.output_dir_path,
-        )
-    
 
-        # torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
+    df_results, cm, best_model = model_training(
+        model=model,
+        dl_train=dl_train,
+        dl_val=dl_val,
+        dl_test=dl_test,
+        epochs=settings.training.epochs,
+        criterion_type=settings.training.criterion_type,
+        lr=settings.training.lr,
+        weight_decay=settings.training.weight_decay,
+        labels=settings.data_preprocessing.labels,
+        n_classes=[
+            len(categories['emotions']),
+            len(categories['sentiments']),
+        ],
+        utterance_processing=settings.data_preprocessing.utterance_processing,
+        seed=123,
+    )
+    
+    visualisation(
+        df=df_results,
+        cm=cm,
+        labels=settings.data_preprocessing.labels,
+        output_dir=settings.output_dir_path,
+    )
 
-        # this is to load on cpu
-        #device = torch.device("cpu")
-        #model.load_state_dict(torch.load("cnn1d_model.pth", map_location=device))
+
+    # torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
+
+    # this is to load on cpu
+    #device = torch.device("cpu")
+    #model.load_state_dict(torch.load("cnn1d_model.pth", map_location=device))

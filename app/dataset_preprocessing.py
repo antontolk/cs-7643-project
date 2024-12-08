@@ -3,21 +3,21 @@ import logging
 import regex as re
 
 import torch
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-from transformers import AutoModel, BertTokenizerFast
+from torch.utils.data import TensorDataset, DataLoader
+from transformers import BertTokenizerFast
 
-import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 import spacy
-from sklearn.utils.class_weight import compute_class_weight
+
 from app.tokenizer_bpe import TokenizerBPE
 from app.tokenizer_word import TokenizerWord
 from app.logging_config import logger_config
 
 logger = logging.getLogger(__name__)
 logger_config(logger)
+
 
 def meld_processing(
         df_train: pd.DataFrame,
@@ -35,44 +35,35 @@ def meld_processing(
         tokens_in_sentence: int | None = None,
         batch_size: int = 32,
         shuffle: bool = True,
+        bert_model_name: str = 'bert-base-uncased',
 ) -> tuple[DataLoader, DataLoader, DataLoader, dict]:
     """Preprocessing MELD dataset
 
     :param df_train: Training datasaet.
-    :type df_train: pandas.DataFrame
     :param df_val: Validation datasaet.
-    :type df_val: pandas.DataFrame
     :param df_test: Test datasaet.
-    :type df_test: pandas.DataFrame
     :param labels: label columns in DataFrames to be extracted.
-    :type labels: list
     :param encode_speakers: If True, the Speaker column will be added to
         samples as One-Hot vectors.
     :param lemmatization: if True, lemmatization will be applied.
-    :type lemmatization: bool
     :param remove_punc_signs: if True, punctuations and signs will be removed.
-    :type remove_punc_signs: bool
+    :param strip: if True, the text will be stripped during the processing step.
     :param utterance_processing: Options:
         ngram - if ngram is (1, 1) Bag of Word, else N-Grams
         BPE - Byte Pair Encoding
-    :type utterance_processing: str
     :param ngram: The lower and upper boundary of the range of n-values for
         different word n-grams or char n-grams to be extracted.
-    :type ngram: tuple
     :param stop_words: The list of stop words.
-    :type: set | list
     :param tokens_in_sentence: If specified, all sentences will be padded or
-        shrunk to the specified length. For Word and BPE tokenization only
+        shrunk to the specified length. For Word and BPE tokenization only.
     :param top_n_speakers: if specified, only top N speakers will be considered
-        for the speaker One-Hot encoding
-    :type top_n_speakers: int | None
-    :param batch_size: The batch size
-    :type batch_size: int
-    :param shuffle: If True, datasets will be shuffled
-    :type shuffle: bool
+        for the speaker One-Hot encoding.
+    :param batch_size: The batch size.
+    :param shuffle: If True, datasets will be shuffled.
+    :param bert_model_name: The name of the pre-trained BERT model to use.
+    :param max_length: The maximum token length for BERT inputs.
 
     :return: Train, Val and Test dataloaders and saved categories
-    :rtype: tuple[DataLoader, DataLoader, DataLoader, dict]
     """
     categories = {}
 
@@ -107,56 +98,6 @@ def meld_processing(
     logger.info('Sentiments categories have been replaced')
 
     ###########################################################################
-    # For BERT
-    if utterance_processing == 'bert':
-        logger.info(
-            'Utterances are being transformed using BERT')
-        remove_punc_signs = False
-        strip = False
-        lemmatization = False
-        encode_speakers = False
-        train_text = df_train['Utterance']
-        val_text= df_val['Utterance']
-        test_text = df_test['Utterance']
-        
-        bert = AutoModel.from_pretrained('bert-base-uncased')
-        tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-        
-        # Tokenize and encode sequences in the training set
-        tokens_train = tokenizer.batch_encode_plus(
-            train_text.tolist(),
-            max_length=25,
-            pad_to_max_length=True,
-            truncation=True
-        )
-        logger.info('Tokenized and encoded sequences in the training set.')
-        # Tokenize and encode sequences in the validation set
-        tokens_val = tokenizer.batch_encode_plus(
-            val_text.tolist(),
-            max_length=25,
-            pad_to_max_length=True,
-            truncation=True
-        )
-        logger.info('Tokenized and encoded sequences in the val set.')
-        # Tokenize and encode sequences in the test set
-        tokens_test = tokenizer.batch_encode_plus(
-            test_text.tolist(),
-            max_length=25,
-            pad_to_max_length=True,
-            truncation=True
-        )
-        logger.info('Tokenized and encoded sequences in the test set.')
-        train_seq = torch.tensor(tokens_train['input_ids'])
-        train_mask = torch.tensor(tokens_train['attention_mask'])
-        val_seq = torch.tensor(tokens_val['input_ids'])
-        val_mask = torch.tensor(tokens_val['attention_mask'])
-        test_seq = torch.tensor(tokens_test['input_ids'])
-        test_mask = torch.tensor(tokens_test['attention_mask'])
-        logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
-            f"Val shape: {val_seq.shape}, {val_mask.shape}; "
-            f"Test shape: {test_seq.shape}, {test_mask.shape}")
-
-    ###########################################################################
     # Remove punctuations and signs
     if remove_punc_signs:
         logger.info('Punctuations and signs are being removed.')
@@ -173,6 +114,7 @@ def meld_processing(
         logger.info('Punctuations and signs have been removed.')
 
     ###########################################################################
+    # Strip text
     if strip:
         logger.info('Utterances are being stripped.')
         df_train['Utterance'] = df_train.loc[:, 'Utterance'].map(
@@ -204,7 +146,6 @@ def meld_processing(
             lambda x: ' '.join([token.lemma_ for token in spacy_model(x)])
         )
         logger.info('Utterances have been lemmatized')
-
 
     #######################################################################
     # Transformations of the Utterance column
@@ -283,7 +224,7 @@ def meld_processing(
         )
         tensor_type = torch.float
 
-        # Tokenization by Word
+    # Tokenization by Word
     elif utterance_processing == 'word':
         logger.info('Utterances will be tokenized using Word-Level Tokenizer.')
         
@@ -368,7 +309,69 @@ def meld_processing(
         
         tensor_type = torch.long
 
-    #######################################################################
+    # BERT Scenario
+    elif utterance_processing == 'bert':
+        logger.info('Utterances are being tokenized using BERT Tokenizer.')
+
+        # Initialize BERT tokenizer
+        tokenizer = BertTokenizerFast.from_pretrained(bert_model_name)
+
+        # Tokenize the utterances
+        train_encodings = tokenizer.batch_encode_plus(
+            df_train.loc[:, 'Utterance'].tolist(),
+            add_special_tokens=True,
+            max_length=tokens_in_sentence,
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors='np',
+        )
+        val_encodings = tokenizer.batch_encode_plus(
+            df_val.loc[:, 'Utterance'].tolist(),
+            add_special_tokens=True,
+            max_length=tokens_in_sentence,
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors='np',
+        )
+        test_encodings = tokenizer.batch_encode_plus(
+            df_test.loc[:, 'Utterance'].tolist(),
+            add_special_tokens=True,
+            max_length=tokens_in_sentence,
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors='np',
+        )
+
+        # Extract input_ids and attention_mask
+        X_train_utterance = train_encodings['input_ids']
+        X_val_utterance = val_encodings['input_ids']
+        X_test_utterance = test_encodings['input_ids']
+
+        X_train_attention_mask = train_encodings['attention_mask']
+        X_val_attention_mask = val_encodings['attention_mask']
+        X_test_attention_mask = test_encodings['attention_mask']
+
+        logger.info(
+            'Utterances have been tokenized using BERT Tokenizer. '
+            'Train input_ids shape: %s. '
+            'Val input_ids shape: %s. '
+            'Test input_ids shape: %s.',
+            X_train_utterance.shape,
+            X_val_utterance.shape,
+            X_test_utterance.shape,
+        )
+
+        tensor_type = torch.long
+
+    else:
+        raise ValueError(
+            f'Unsupported utterance_processing type: {utterance_processing}'
+        )
+
+    ###########################################################################
     # Convert Speaker columns to One-Hot vectors
     if encode_speakers:
         # Leave only top N speakers, 'Other' will replace other speakers
@@ -464,38 +467,77 @@ def meld_processing(
         y_test.size(),
     )
 
+    # For BERT only place attention masks to torch tensors
+    if utterance_processing == 'bert':
+        X_train_attention_mask = torch.from_numpy(X_train_attention_mask).type(torch.long)
+        X_val_attention_mask = torch.from_numpy(X_val_attention_mask).type(torch.long)
+        X_test_attention_mask = torch.from_numpy(X_test_attention_mask).type(torch.long)
+
+        logger.info(
+            'NumPy arrays have been converted to PyTorch tensors. '
+            'X_train_attention_mask: %s. '
+            'X_val_attention_mask: %s. '
+            'X_test_attention_mask: %s. ',
+            X_train_attention_mask.size(),
+            X_val_attention_mask.size(),
+            X_test_attention_mask.size(),
+        )
+
     # Place Tensors to Dataset/DataLoader
     logger.info('Tensors is being placed to DataLoaders')
-    ds_train = DataLoader(
-        TensorDataset(X_train_utterance, X_train_speaker, y_train),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    ds_val = DataLoader(
-        TensorDataset(X_val_utterance, X_val_speaker, y_val),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    ds_test = DataLoader(
-        TensorDataset(X_test_utterance, X_test_speaker, y_test),
-        batch_size=batch_size,
-        shuffle=shuffle,
-    )
-    logger.info('Tensors have been placed to DataLoaders')
 
-    # TODO: refactoring needed
-    # BERT Scenario
+    # BERT scenario
     if utterance_processing == 'bert':
-        logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
-                    f"train label shape: {y_train.shape}")
-        assert train_seq.size(0) == train_mask.size(0) == y_train.size(0), "Mismatch in tensor sizes!"
-        train_data = TensorDataset(train_seq, train_mask, y_train)
-        val_data = TensorDataset(val_seq, val_mask, y_val)
-        test_data = TensorDataset(test_seq, test_mask, y_test)
+        # For BERT, include input_ids and attention_mask
+        ds_train = DataLoader(
+            TensorDataset(
+                X_train_utterance,
+                X_train_attention_mask,
+                X_train_speaker,
+                y_train,
+            ),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+        ds_val = DataLoader(
+            TensorDataset(
+                X_val_utterance,
+                X_val_attention_mask,
+                X_val_speaker,
+                y_val,
+            ),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+        ds_test = DataLoader(
+            TensorDataset(
+                X_test_utterance,
+                X_test_attention_mask,
+                X_test_speaker,
+                y_test,
+            ),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
 
-        ds_train = DataLoader(train_data, shuffle=shuffle, batch_size=batch_size)
-        ds_val = DataLoader(val_data, shuffle=shuffle, batch_size=batch_size)
-        ds_test = DataLoader(test_data, shuffle=shuffle, batch_size=batch_size)
+    # Others
+    else:
+        ds_train = DataLoader(
+            TensorDataset(X_train_utterance, X_train_speaker, y_train),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+        ds_val = DataLoader(
+            TensorDataset(X_val_utterance, X_val_speaker, y_val),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+        ds_test = DataLoader(
+            TensorDataset(X_test_utterance, X_test_speaker, y_test),
+            batch_size=batch_size,
+            shuffle=shuffle,
+        )
+    logger.info('Tensors have been placed to DataLoaders')
 
     return ds_train, ds_val, ds_test, categories
    

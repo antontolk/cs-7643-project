@@ -1,55 +1,76 @@
-import torch.nn as nn
+import torch
+from torch import nn
+from transformers import BertModel
 
-class BERT_Arch(nn.Module):
-    def __init__(self, bert, labels,n_classes):
-        super(BERT_Arch, self).__init__()
-        
-        self.bert = bert 
-        
+
+class BertlNet(nn.Module):
+    """
+    A multi-label classification model using pre-trained BERT for textual data
+    and additional speaker features.
+
+    :param bert_model_name: Name of the pre-trained BERT model.
+    :param speaker_feature_dim: Dimensionality of the speaker features.
+    :param n_emotion_classes: Number of emotion classes.
+    :param n_sentiment_classes: Number of sentiment classes.
+    :param dropout_rate: Dropout probability.
+    """
+
+    def __init__(
+        self,
+        bert_model_name: str,
+        n_speakers: int,
+        n_emotion_classes: int,
+        n_sentiment_classes: int,
+        dropout_rate: float,
+    ):
+        super().__init__()
+
+        # Load pre-trained BERT model
+        self.bert = BertModel.from_pretrained(bert_model_name)
+        hidden_size = self.bert.config.hidden_size
+
+        # Speaker flow
+        self.speaker_fc = nn.Sequential(
+            nn.Linear(n_speakers, hidden_size // 4),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate)
+        )
+        combined_size = hidden_size + (hidden_size // 4)
+
         # Dropout layer
-        self.dropout = nn.Dropout(0.1)
-      
-        # ReLU activation function
-        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout_rate)
 
-        # Shared dense layer
-        self.fc_shared = nn.Linear(768, 512)
-        
-        # Emotion head
-        if 'Emotion' in labels:
-            num_emotion_classes = n_classes[0]
-            self.emotion_head = nn.Sequential(
-                nn.Linear(512, 256),
-                nn.ReLU(),
-                nn.Dropout(0.1),
-                nn.Linear(256, num_emotion_classes),  # Output layer for Emotion
-                nn.LogSoftmax(dim=1)
-            )
+        # Classification heads
+        self.emotion_classifier = nn.Linear(combined_size, n_emotion_classes)
+        self.sentiment_classifier = nn.Linear(combined_size, n_sentiment_classes)
 
-        # Sentiment head
-        if 'Sentiment' in labels:
-            num_sentiment_classes = n_classes[1]
-            self.sentiment_head = nn.Sequential(
-                nn.Linear(512, 256),
-                nn.ReLU(),
-                nn.Dropout(0.1),
-                nn.Linear(256, num_sentiment_classes),  # Output layer for Sentiment
-                nn.LogSoftmax(dim=1)
-            )
+    def forward(
+            self,
+            x_utterance: torch.Tensor,
+            attention_mask: torch.Tensor,
+            x_speaker: torch.Tensor,
+    ):
+        """ Forward pass of the model."""
+        # Utterance embeddings
+        # print(f'{x_utterance.size()=}')
+        # print(f'{attention_mask.size()=}')
+        x_utterance = self.bert(
+            input_ids=x_utterance,
+            attention_mask=attention_mask,
+        ).pooler_output
+        # print(f'{x_utterance.size()=}')
 
-    # Define the forward pass
-    def forward(self, sent_id, mask):
-        
-        # Pass the inputs to the BERT model  
-        _, cls_hs = self.bert(sent_id, attention_mask=mask, return_dict=False)
-        
-        # Shared dense layer
-        x = self.fc_shared(cls_hs)
-        x = self.relu(x)
+        # Speaker flow
+        # print(f'{x_speaker.size()=}')
+        x_speaker = self.speaker_fc(x_speaker)
+        # print(f'{x_speaker.size()=}')
+
+        x = torch.cat((x_utterance, x_speaker), dim=1)
+        # print(f'{x.size()=}')
         x = self.dropout(x)
 
-        # Get outputs from both heads
-        emotion_output = self.emotion_head(x)
-        sentiment_output = self.sentiment_head(x)
+        # Classification
+        out_emotion = self.emotion_classifier(x)
+        out_sentiment = self.sentiment_classifier(x)
 
-        return emotion_output, sentiment_output
+        return out_emotion, out_sentiment

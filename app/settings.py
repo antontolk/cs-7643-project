@@ -53,6 +53,7 @@ class DatasetProcessing(BaseSettings):
     top_n_speakers: int = Field()           # Only Top N speakers will be considered
     batch_size: int = Field()
     shuffle: bool = Field()
+    bert_model_name: str = Field()
 
 
 class ModelSettings(BaseSettings):
@@ -115,7 +116,7 @@ class Settings(BaseSettings):
     @classmethod
     def load(
         cls,
-        config_path: Path = module_root / '..' / 'config' / 'config_transformer.json',
+        config_path: Path = module_root / '..' / 'config' / 'config_bert.json',
     ):
         """Load the application configuration file."""
         return cls.parse_file(config_path)
