@@ -125,7 +125,7 @@ if __name__ == '__main__':
     if settings.model.type in ['fc', 'cnn']:
         # Train the model
         # TODO: return the trained model
-        df_results, cm = model_training(
+        df_results, cm, best_model = model_training(
             model=model,
             dl_train=dl_train,
             dl_val=dl_val,

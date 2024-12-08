@@ -620,7 +620,7 @@ def model_training(
         'Sentiment Macro F1: %.4f | '
         'Emotion Weighted F1: %.4f | '
         'Sentiment Weighted F1: %.4f',
-        epoch + 1, epochs,
+        best_epoch + 1, epochs,
         epoch_test_loss,
         epoch_test_emotion_accuracy,
         epoch_test_sentiment_accuracy,
@@ -635,7 +635,7 @@ def model_training(
     )
 
     df_test = pd.DataFrame({
-        'epoch': [best_epoch],
+        'epoch': [best_epoch + 1],
         'type': ['test'],
         'loss': [epoch_test_loss],
         'emotion_accuracy': [epoch_test_emotion_accuracy],
