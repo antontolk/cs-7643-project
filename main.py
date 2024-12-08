@@ -109,11 +109,18 @@ if __name__ == '__main__':
     elif settings.model.type == 'transformer':
         model = TransformerNet(
             vocab_size=categories['vocab_size'],
-            n_features=dl_train.dataset[0][0].shape[0],
-            hidden=settings.model.hidden_size,
-            nhead=settings.model.n_heads,
-            num_layers=settings.model.n_layers,
-            max_len=max(data[0].shape[0] for data in dl_train.dataset),
+            embedding_dim=settings.model.embedding_dim,
+            n_speakers=settings.data_preprocessing.top_n_speakers + 1,
+            n_classes=[
+                len(categories['emotions']),
+                len(categories['sentiments']),
+            ],
+            n_heads=settings.model.n_heads,
+            n_layers=settings.model.n_layers,
+            hidden_size=settings.model.hidden_size,
+            dropout_rate=settings.model.dropout_rate,
+            labels=settings.data_preprocessing.labels,
+            # max_len=max(data[0].shape[0] for data in dl_train.dataset),
         )
         logger.info('Fully Connected model initiated. \n %s', model)
     elif settings.model.type == 'bert':
@@ -125,7 +132,7 @@ if __name__ == '__main__':
         raise ValueError('Not supported model type.')
 
     # Train and visualise FC and CNN models
-    if settings.model.type in ['fc', 'cnn']:
+    if settings.model.type in ['fc', 'cnn', 'transformer']:
         # Train the model
         # TODO: return the trained model
         df_results, cm, best_model = model_training(

@@ -1,5 +1,7 @@
 """The model training functions"""
+import copy
 import logging
+
 
 import pandas as pd
 import torch
@@ -485,7 +487,7 @@ def model_training(
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
             best_epoch = epoch
-            best_model_state = model.state_dict()
+            best_model_state = copy.deepcopy(model.state_dict())
             logger.info(
                 'Epoch %d: New best model found with validation loss %.4f',
                 epoch + 1, best_val_loss,
@@ -497,7 +499,8 @@ def model_training(
 
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
-        logger.info('The best model has been loaded')
+        model.to(device)
+        logger.info('The best model has been loaded from epoch %d', best_epoch + 1)
     else:
         logger.warning('No improvement observed during the training')
 

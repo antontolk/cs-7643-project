@@ -53,7 +53,7 @@ class CNN1DNet(nn.Module):
                 conv_layers.append(nn.BatchNorm1d(num_filters[i]))
             conv_layers.append(nn.ReLU())
             conv_layers.append(nn.Dropout(dropout_rate))
-            # conv_layers.append(nn.MaxPool1d(kernel_size=2, stride=2))
+            conv_layers.append(nn.MaxPool1d(kernel_size=2, stride=2))
             in_channels = num_filters[i]
 
         self.conv_sequence = nn.Sequential(*conv_layers)

@@ -1,90 +1,167 @@
-from sympy import N
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
 import math
 
-class TransformerNet(nn.Module):
-  def __init__(self, vocab_size, n_features, hidden, labels, n_classes, 
-               nhead=4, num_layers=2, max_len=512):
-    
-    super().__init__()
-    
-    self.embedding = nn.Embedding(vocab_size, n_features)
-    
-    if n_features % nhead != 0:
-      adjusted_n_features = (n_features // nhead + 1) * nhead
-      self.feature_projection = nn.Linear(n_features, adjusted_n_features)
-      self.n_features = adjusted_n_features
-    else:
-      self.feature_projection = nn.Identity()
-      self.n_features = n_features
-    
-    self.positional_encoding = PositionalEncoding(n_features, max_len=max_len)
-    
-    self.encoder_layer = nn.TransformerEncoderLayer(
-      d_model=n_features,
-      nhead=nhead,
-      dim_feedforward=hidden,
-      activation='relu',
-      batch_first=True
-    )
-    
-    self.transformer_encoder = nn.TransformerEncoder(
-      self.encoder_layer, num_layers=num_layers
-    )
-    
-    self.labels = labels
-    self.n_classes = n_classes
-    
-    if 'Emotion' in labels:
-      self.emotion_head = nn.Sequential(
-        nn.Linear(n_features, hidden),
-        nn.ReLU(),
-        nn.Linear(hidden, n_classes[labels.index('Emotion')])        
-      )
-      
-    if 'Sentiment' in labels:
-      self.sentiment_head = nn.Sequential(
-        nn.Linear(n_features, hidden),
-        nn.ReLU(),
-        nn.Linear(hidden, n_classes[labels.index('Sentiment')])
-      )
-      
-  def forward(self, x):
-    x = x.long()
-    x = self.embedding(x)
-    x = self.feature_projection(x)
-    
-    x = self.positional_encoding(x)
-    
-    x = self.transformer_encoder(x)
-    
-    pooled_output = x[:, 0, :]
-    
-    out_emotion = self.emotion_head(pooled_output) if 'Emotion' in self.labels else None
-    out_sentiment = self.sentiment_head(pooled_output) if 'Sentiment' in self.labels else None
-    
-    return out_emotion, out_sentiment
-  
+
 class PositionalEncoding(nn.Module):
-  def __init__(self, n_features, max_len=512):
-    super().__init__()
-    
-    self.max_len = max_len
-    self.encoding = torch.zeros(max_len, n_features)
-    position = torch.arange(0, max_len).unsqueeze(1)
-    div_term = torch.exp(torch.arange(0, n_features, 2) * (-math.log(10000.0) / n_features))
-    
-    # even
-    self.encoding[:, 0::2] = torch.sin(position * div_term)
-    if n_features % 2 == 1: #if odd
-      self.encoding[:, 1::2] = torch.cos(position * div_term[:-1])
-    else:
-      self.encoding[:, 1::2] = torch.cos(position * div_term)
-    
-    self.encoding = self.encoding.unsqueeze(0)
-    
-  def forward(self, x):
-    seq_len = x.size(1)
-    return x + self.encoding[:, :seq_len, :].to(x.device)
+    """
+    Implements the standard sinusoidal positional encoding as described in the Transformer paper.
+    Adds positional information to the input embeddings.
+    """
+
+    def __init__(
+            self,
+            d_model: int,
+            max_len: int,
+    ):
+        """
+        Initializes the PositionalEncoding module.
+
+        :param d_model: The dimension of the embeddings. Must match the
+            `d_model` parameter in the Transformer encoder.
+        :param max_len: The maximum length of input sequences.
+        """
+        super(PositionalEncoding, self).__init__()
+
+        # Matrix to hold the positional encodings
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+
+        # Compute the positional encodings in log space
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+
+        # Apply sine to even indices in the array
+        pe[:, 0::2] = torch.sin(position * div_term)
+
+        # Apply cosine to odd indices in the array
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        pe = pe.unsqueeze(0)
+
+        # Register as a buffer to avoid updating during training
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Adds positional encoding to the input embeddings.
+        """
+        return x + self.pe[:, :x.size(1), :]
+
+
+class TransformerNet(nn.Module):
+    """Transformer-based model for emotion and sentiment predictions."""
+    def __init__(
+            self,
+            vocab_size: int,
+            embedding_dim: int,
+            n_speakers: int,
+            n_classes: list,
+            n_heads: int,
+            n_layers: int,
+            hidden_size: int,
+            dropout_rate: float,
+            labels: list,
+    ):
+        """
+        Initialize the TransformerNet model with Transformer encoder layers and a [CLS] token.
+
+        :param vocab_size: size of the vocabulary for embeddings.
+        :param embedding_dim: dimension of word embeddings.
+        :param n_speakers: number of speaker features.
+        :param n_classes: Number of classes for each label.
+        :param n_heads: Number of attention heads in the Transformer encoder.
+        :param n_layers: Number of Transformer encoder layers.
+        :param hidden_size: Dimension of the feedforward network in the Transformer encoder.
+        :param dropout_rate: Dropout probability for regularization.
+        :param labels: List of labels to classify (e.g., ['Emotion', 'Sentiment']).
+        """
+        super().__init__()
+
+        self.labels = labels
+        self.dropout_rate = dropout_rate
+
+        # Embedding Layer with [CLS] Token
+        self.cls_token = nn.Parameter(torch.randn(1, 1, embedding_dim))
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.pos_encoder = PositionalEncoding(
+            d_model=embedding_dim,
+            max_len=100,
+        )
+
+        # Transformer encoder layers
+        encoder_layers = nn.TransformerEncoderLayer(
+            d_model=embedding_dim,
+            nhead=n_heads,
+            dim_feedforward=hidden_size,
+            dropout=dropout_rate,
+            activation='relu',
+        )
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer=encoder_layers,
+            num_layers=n_layers,
+        )
+
+        # Speaker Flow
+        self.linear_speaker = nn.Sequential(
+            nn.Linear(n_speakers, hidden_size // 4),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate)
+        )
+
+        # Output head: Emotion
+        if 'Emotion' in labels:
+            self.emotion_head = nn.Sequential(
+                nn.Linear(
+                    embedding_dim + hidden_size // 4,
+                    hidden_size,
+                ),
+                nn.ReLU(),
+                nn.Dropout(dropout_rate),
+                nn.Linear(hidden_size, n_classes[labels.index('Emotion')])
+            )
+
+        # Output head: Sentiment
+        if 'Sentiment' in labels:
+            self.sentiment_head = nn.Sequential(
+                nn.Linear(
+                    embedding_dim + hidden_size // 4,
+                    hidden_size,
+                ),
+                nn.ReLU(),
+                nn.Dropout(dropout_rate),
+                nn.Linear(hidden_size, n_classes[labels.index('Sentiment')])
+            )
+
+    def forward(self, x_utterance: torch.Tensor, x_speaker: torch.Tensor):
+        """Network forward pass."""
+
+        batch_size, seq_len = x_utterance.size()
+
+        # Utterance flow
+        x_utterance = self.embedding(x_utterance)
+
+        # Expand [CLS] token to match batch size and prepend to the sequence
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        x_utterance = torch.cat((cls_tokens, x_utterance), dim=1)
+
+        # Add positional encoding
+        x_utterance = self.pos_encoder(x_utterance).permute(1, 0, 2)
+
+        # Pass through transformer encoder
+        x_utterance = self.transformer_encoder(x_utterance).permute(1, 0, 2)
+
+        # Extract the [CLS] token's embedding
+        x_utterance = x_utterance[:, 0, :]
+
+        # Speaker Flow
+        x_speaker = self.linear_speaker(x_speaker)
+
+        x = torch.cat((x_utterance, x_speaker), dim=1)
+
+        # Output heads
+        out_emotion = self.emotion_head(x) \
+            if hasattr(self, 'emotion_head') else None
+        out_sentiment = self.sentiment_head(x) \
+            if hasattr(self, 'sentiment_head') else None
+
+        return out_emotion, out_sentiment
