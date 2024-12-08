@@ -1,8 +1,9 @@
 """The model training functions"""
 import copy
 import logging
+import random
 
-
+import numpy as np
 import pandas as pd
 import torch
 from torch import nn
@@ -14,9 +15,6 @@ from torchmetrics.classification import (
     MulticlassPrecision,
     MulticlassRecall,
 )
-
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from app.logging_config import logger_config
 
@@ -80,9 +78,12 @@ def model_training(
         weight_decay: float,
         labels: list,
         n_classes: list,
+        utterance_processing: str,
+        seed: int,
         alpha: float = 1.0,
         gamma: float = 2.0,
         smoothing: float = 0.1,
+        max_grad_norm: float = 1.0,
 ) -> tuple[pd.DataFrame, dict, nn.Module]:
     """
     The model training.
@@ -101,17 +102,24 @@ def model_training(
     :param weight_decay: L2 regularization
     :param labels: List of label names (e.g., ['Emotion', 'Sentiment'])
     :param n_classes: List of number of classes for each label
+    :param utterance_processing: Type of utterance processing ('bert', 'counts', etc.)
+    :param seed: seed value
     :param alpha: alpha parameter for Focal Loss (default: 1.0)
     :param gamma: gamma parameter for Focal Loss (default: 2.0)
     :param smoothing: smoothing parameter for Label Smoothing Loss (default: 0.1)
+    :param max_grad_norm: maximum gradient norm for the gradient clipping.
 
     :return: training results, confusion matrices, and the best model.
     """
 
     device = 'mps' if torch.mps.is_available() else \
         'cuda' if torch.cuda.is_available() else 'cpu'
-        
-    print(f"Device Type: {device}")
+    logger.info('Device type: %s', device)
+
+    # Set seed
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
     n_emotion_classes = n_classes[labels.index('Emotion')]
     n_sentiment_classes = n_classes[labels.index('Sentiment')]
@@ -119,7 +127,8 @@ def model_training(
     # Collect the training labels to compute class weights
     emotion_labels = []
     sentiment_labels = []
-    for _, _, batch_y in dl_train:
+    for batch in dl_train:
+        batch_y = batch[3] if utterance_processing == 'bert' else batch[2]
         emotion_labels.append(batch_y[:, 0])
         sentiment_labels.append(batch_y[:, 1])
     emotion_labels = torch.cat(emotion_labels)
@@ -128,13 +137,13 @@ def model_training(
     # Define the loss functions
     if criterion_type in ['wce', 'focal']:
         # Compute class weights for emotions
-        emotion_class_counts = torch.bincount(emotion_labels)
+        emotion_class_counts = torch.bincount(emotion_labels, minlength=n_emotion_classes)
         emotion_class_weights = 1.0 / emotion_class_counts.float()
         emotion_class_weights = emotion_class_weights / emotion_class_weights.sum()
         emotion_class_weights = emotion_class_weights.to(device)
 
         # Compute class weights for sentiments
-        sentiment_class_counts = torch.bincount(sentiment_labels)
+        sentiment_class_counts = torch.bincount(sentiment_labels, minlength=n_sentiment_classes)
         sentiment_class_weights = 1.0 / sentiment_class_counts.float()
         sentiment_class_weights = sentiment_class_weights / sentiment_class_weights.sum()
         sentiment_class_weights = sentiment_class_weights.to(device)
@@ -149,8 +158,8 @@ def model_training(
         criterion_emotion = FocalLoss(alpha=alpha, gamma=gamma, weight=emotion_class_weights)
         criterion_sentiment = FocalLoss(alpha=alpha, gamma=gamma, weight=sentiment_class_weights)
     elif criterion_type == 'label_smoothing':
-        criterion_emotion = LabelSmoothingLoss(classes=n_emotion_classes, smoothing=0.1)
-        criterion_sentiment = LabelSmoothingLoss(classes=n_sentiment_classes, smoothing=0.1)
+        criterion_emotion = LabelSmoothingLoss(classes=n_emotion_classes, smoothing=smoothing)
+        criterion_sentiment = LabelSmoothingLoss(classes=n_sentiment_classes, smoothing=smoothing)
     else:
         raise ValueError('Not supported criterion type.')
 
@@ -214,10 +223,21 @@ def model_training(
             average='macro',
         ).to(device)
 
-        for batch_X_utterance, batch_X_speaker, batch_y in dl_train:
+        for batch in dl_train:
             # Move batches to the device
-            batch_X_utterance = batch_X_utterance.to(device)
-            batch_X_speaker = batch_X_speaker.to(device)
+            if utterance_processing == 'bert':
+                # Batch structure: input_ids, attention_mask, speaker_features, labels
+                batch_X_utterance_ids = batch[0].to(device)
+                batch_X_utterance_attention_mask = batch[1].to(device)
+                batch_X_speaker = batch[2].to(device)
+                batch_y = batch[3].to(device)
+
+            else:
+                # Batch structure: utterance_vectors, speaker_features, labels
+                batch_X_utterance = batch[0].to(device)
+                batch_X_speaker = batch[1].to(device)
+                batch_y = batch[2].to(device)
+
             emotion_labels = batch_y[:, 0].to(device)
             sentiment_labels = batch_y[:, 1].to(device)
 
@@ -225,7 +245,17 @@ def model_training(
             optimizer.zero_grad()
 
             # Forward pass
-            out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
+            if utterance_processing == 'bert':
+                out_emotion, out_sentiment = model(
+                    batch_X_utterance_ids,
+                    batch_X_utterance_attention_mask,
+                    batch_X_speaker,
+                )
+            else:
+                out_emotion, out_sentiment = model(
+                    batch_X_utterance,
+                    batch_X_speaker,
+                )
 
             # Loss
             loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -233,6 +263,7 @@ def model_training(
 
             # Backward pass and optimization
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
 
             # Accumulate loss
@@ -372,15 +403,36 @@ def model_training(
         ).to(device)
 
         with torch.no_grad():
-            for batch_X_utterance, batch_X_speaker, batch_y in dl_val:
+            for batch in dl_val:
                 # Move batches to the device
-                batch_X_utterance = batch_X_utterance.to(device)
-                batch_X_speaker = batch_X_speaker.to(device)
+                if utterance_processing == 'bert':
+                    # Batch structure: input_ids, attention_mask, speaker_features, labels
+                    batch_X_utterance_ids = batch[0].to(device)
+                    batch_X_utterance_attention_mask = batch[1].to(device)
+                    batch_X_speaker = batch[2].to(device)
+                    batch_y = batch[3].to(device)
+
+                else:
+                    # Batch structure: utterance_vectors, speaker_features, labels
+                    batch_X_utterance = batch[0].to(device)
+                    batch_X_speaker = batch[1].to(device)
+                    batch_y = batch[2].to(device)
+
                 emotion_labels = batch_y[:, 0].to(device)
                 sentiment_labels = batch_y[:, 1].to(device)
 
                 # Forward pass
-                out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
+                if utterance_processing == 'bert':
+                    out_emotion, out_sentiment = model(
+                        batch_X_utterance_ids,
+                        batch_X_utterance_attention_mask,
+                        batch_X_speaker,
+                    )
+                else:
+                    out_emotion, out_sentiment = model(
+                        batch_X_utterance,
+                        batch_X_speaker,
+                    )
 
                 # Loss
                 loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -553,13 +605,36 @@ def model_training(
     ).to(device)
 
     with torch.no_grad():
-        for batch_X_utterance, batch_X_speaker, batch_y in dl_test:
-            batch_X_utterance = batch_X_utterance.to(device)
-            batch_X_speaker = batch_X_speaker.to(device)
+        for batch in dl_test:
+            # Move batches to the device
+            if utterance_processing == 'bert':
+                # Batch structure: input_ids, attention_mask, speaker_features, labels
+                batch_X_utterance_ids = batch[0].to(device)
+                batch_X_utterance_attention_mask = batch[1].to(device)
+                batch_X_speaker = batch[2].to(device)
+                batch_y = batch[3].to(device)
+
+            else:
+                # Batch structure: utterance_vectors, speaker_features, labels
+                batch_X_utterance = batch[0].to(device)
+                batch_X_speaker = batch[1].to(device)
+                batch_y = batch[2].to(device)
+
             emotion_labels = batch_y[:, 0].to(device)
             sentiment_labels = batch_y[:, 1].to(device)
 
-            out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
+            # Forward pass
+            if utterance_processing == 'bert':
+                out_emotion, out_sentiment = model(
+                    batch_X_utterance_ids,
+                    batch_X_utterance_attention_mask,
+                    batch_X_speaker,
+                )
+            else:
+                out_emotion, out_sentiment = model(
+                    batch_X_utterance,
+                    batch_X_speaker,
+                )
 
             # Loss
             loss = criterion_emotion(out_emotion, emotion_labels) \
