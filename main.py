@@ -46,10 +46,6 @@ class BertModelTrainer:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Sentiment Analysis')
-    parser.add_argument('-t','--type', help='Choose the model, fc and bert are only supported options', required=False)
-    args = vars(parser.parse_args())
-
     # Load settings
     settings = Settings.load()
 
@@ -60,9 +56,6 @@ if __name__ == '__main__':
             test_path=settings.data_load.test,
             dataset=settings.data_load.dataset,
         )
-
-    if args['type'] is not None:
-        settings.model.type = args['type']
 
     # Data preprocessing
     dl_train, dl_val, dl_test, categories = meld_processing(
@@ -82,50 +75,53 @@ if __name__ == '__main__':
         batch_size=settings.data_preprocessing.batch_size
     )
 
-
-    
-    word_tokenizer.fit(df_train['Utterance'])
-    
-    # TODO: move to the preprocessing step and save to the categories dict file
-    vocab_size = word_tokenizer.vocab_size
-
-    max_len = max(data[0].shape[0] for data in dl_train.dataset)
-    
-    
     # Create the model
     if settings.model.type == 'fc':
         model = FullyConnectedNet(
-            n_features=dl_train.dataset[0][0].shape[0],
+            n_features=dl_train.dataset[0][0].shape[0] + dl_train.dataset[0][1].shape[0],
             labels=settings.data_preprocessing.labels,
-            hidden=settings.model.hidden_size,
+            hidden_size=settings.model.hidden_size,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
+            dropout_rate=settings.model.dropout_rate,
+            use_batch_norm=settings.model.batch_norm,
         )
      
     elif settings.model.type == 'cnn':
         model = CNN1DNet(
-            vocab_size=None,        # TODO: save to the categories dict during the preprocessing step
-            embedding_dim=100,      # TODO: move to the settings
-            kernel_sizes=[3, 4, 5], # TODO: move to the settings
-            num_filters=100,        # TODO: move to the settings
-            dropout=0.5,            # TODO: move to the settings
+            vocab_size=categories['vocab_size'],
+            embedding_dim=settings.model.embedding_dim,
+            kernel_sizes=settings.model.kernel_sizes,
+            num_filters=settings.model.num_filters,
+            dropout_rate=settings.model.dropout_rate,
             labels=settings.data_preprocessing.labels,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
-            nhead=4,                # TODO: move to the settings
-            num_layers=2,
-            max_len=max_len
+            n_speakers=settings.data_preprocessing.top_n_speakers + 1,
+            hidden_size=settings.model.hidden_size,
+            use_batch_norm=settings.model.batch_norm,
         )
         logger.info('CNN initiated. \n %s', model)
     elif settings.model.type == 'transformer':
         model = TransformerNet(
-            vocab_size=vocab_size,
-            n_features=256,     # TODO: move to the settings
-            hidden=settings.model.hidden_size,
+            vocab_size=categories['vocab_size'],
+            embedding_dim=settings.model.embedding_dim,
+            n_speakers=settings.data_preprocessing.top_n_speakers + 1,
+            n_classes=[
+                len(categories['emotions']),
+                len(categories['sentiments']),
+            ],
+            n_heads=settings.model.n_heads,
+            n_layers=settings.model.n_layers,
+            hidden_size=settings.model.hidden_size,
+            dropout_rate=settings.model.dropout_rate,
+            labels=settings.data_preprocessing.labels,
+            # max_len=max(data[0].shape[0] for data in dl_train.dataset),
+        )
         logger.info('Fully Connected model initiated. \n %s', model)
     elif settings.model.type == 'bert':
         # TODO: BERT model init
@@ -135,11 +131,11 @@ if __name__ == '__main__':
     else:
         raise ValueError('Not supported model type.')
 
-    # Train and visalize FC and CNN models
-    if settings.model.type in ['fc', 'cnn']:
+    # Train and visualise FC and CNN models
+    if settings.model.type in ['fc', 'cnn', 'transformer']:
         # Train the model
         # TODO: return the trained model
-        df_results, cm = model_training(
+        df_results, cm, best_model = model_training(
             model=model,
             dl_train=dl_train,
             dl_val=dl_val,
@@ -162,8 +158,8 @@ if __name__ == '__main__':
             output_dir=settings.output_dir_path,
         )
     
-    
-        torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
+
+        # torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
 
         # this is to load on cpu
         #device = torch.device("cpu")

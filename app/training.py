@@ -1,5 +1,7 @@
 """The model training functions"""
+import copy
 import logging
+
 
 import pandas as pd
 import torch
@@ -81,7 +83,7 @@ def model_training(
         alpha: float = 1.0,
         gamma: float = 2.0,
         smoothing: float = 0.1,
-) -> tuple[pd.DataFrame, dict]:
+) -> tuple[pd.DataFrame, dict, nn.Module]:
     """
     The model training.
 
@@ -103,7 +105,7 @@ def model_training(
     :param gamma: gamma parameter for Focal Loss (default: 2.0)
     :param smoothing: smoothing parameter for Label Smoothing Loss (default: 0.1)
 
-    :return: training results and confusion matrices
+    :return: training results, confusion matrices, and the best model.
     """
 
     device = 'mps' if torch.mps.is_available() else \
@@ -117,7 +119,7 @@ def model_training(
     # Collect the training labels to compute class weights
     emotion_labels = []
     sentiment_labels = []
-    for _, batch_y in dl_train:
+    for _, _, batch_y in dl_train:
         emotion_labels.append(batch_y[:, 0])
         sentiment_labels.append(batch_y[:, 1])
     emotion_labels = torch.cat(emotion_labels)
@@ -164,6 +166,11 @@ def model_training(
     # Initialize DataFrame to store training results
     df = pd.DataFrame()
 
+    # Variables to track the best model
+    best_val_loss = float('inf')
+    best_model_state = None
+    best_epoch = None
+
     for epoch in range(epochs):
         #######################################################################
         # Training loop
@@ -207,9 +214,10 @@ def model_training(
             average='macro',
         ).to(device)
 
-        for batch_X, batch_y in dl_train:
+        for batch_X_utterance, batch_X_speaker, batch_y in dl_train:
             # Move batches to the device
-            batch_X = batch_X.to(device)
+            batch_X_utterance = batch_X_utterance.to(device)
+            batch_X_speaker = batch_X_speaker.to(device)
             emotion_labels = batch_y[:, 0].to(device)
             sentiment_labels = batch_y[:, 1].to(device)
 
@@ -217,7 +225,7 @@ def model_training(
             optimizer.zero_grad()
 
             # Forward pass
-            out_emotion, out_sentiment = model(batch_X)
+            out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
 
             # Loss
             loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -364,14 +372,15 @@ def model_training(
         ).to(device)
 
         with torch.no_grad():
-            for batch_X, batch_y in dl_val:
+            for batch_X_utterance, batch_X_speaker, batch_y in dl_val:
                 # Move batches to the device
-                batch_X = batch_X.to(device)
+                batch_X_utterance = batch_X_utterance.to(device)
+                batch_X_speaker = batch_X_speaker.to(device)
                 emotion_labels = batch_y[:, 0].to(device)
                 sentiment_labels = batch_y[:, 1].to(device)
 
                 # Forward pass
-                out_emotion, out_sentiment = model(batch_X)
+                out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
 
                 # Loss
                 loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -474,6 +483,27 @@ def model_training(
         })
         df = pd.concat([df, df_train, df_val])
 
+        # Update the best model
+        if epoch_val_loss < best_val_loss:
+            best_val_loss = epoch_val_loss
+            best_epoch = epoch
+            best_model_state = copy.deepcopy(model.state_dict())
+            logger.info(
+                'Epoch %d: New best model found with validation loss %.4f',
+                epoch + 1, best_val_loss,
+            )
+
+    ###########################################################################
+    # Load the best model
+    logger.info('The best model is being loaded.')
+
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        model.to(device)
+        logger.info('The best model has been loaded from epoch %d', best_epoch + 1)
+    else:
+        logger.warning('No improvement observed during the training')
+
     ###########################################################################
     # Test loop
     model.eval()
@@ -523,12 +553,13 @@ def model_training(
     ).to(device)
 
     with torch.no_grad():
-        for batch_X, batch_y in dl_test:
-            batch_X = batch_X.to(device)
+        for batch_X_utterance, batch_X_speaker, batch_y in dl_test:
+            batch_X_utterance = batch_X_utterance.to(device)
+            batch_X_speaker = batch_X_speaker.to(device)
             emotion_labels = batch_y[:, 0].to(device)
             sentiment_labels = batch_y[:, 1].to(device)
 
-            out_emotion, out_sentiment = model(batch_X)
+            out_emotion, out_sentiment = model(batch_X_utterance, batch_X_speaker)
 
             # Loss
             loss = criterion_emotion(out_emotion, emotion_labels) \
@@ -592,7 +623,7 @@ def model_training(
         'Sentiment Macro F1: %.4f | '
         'Emotion Weighted F1: %.4f | '
         'Sentiment Weighted F1: %.4f',
-        epoch + 1, epochs,
+        best_epoch + 1, epochs,
         epoch_test_loss,
         epoch_test_emotion_accuracy,
         epoch_test_sentiment_accuracy,
@@ -607,7 +638,7 @@ def model_training(
     )
 
     df_test = pd.DataFrame({
-        'epoch': [epochs],
+        'epoch': [best_epoch + 1],
         'type': ['test'],
         'loss': [epoch_test_loss],
         'emotion_accuracy': [epoch_test_emotion_accuracy],
@@ -629,4 +660,4 @@ def model_training(
         'sentiment': test_sentiment_cm.compute().cpu().numpy(),
     }
 
-    return df, cm
+    return df.reset_index(drop=True), cm, model
