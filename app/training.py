@@ -170,6 +170,9 @@ def model_training(
         weight_decay=weight_decay,
     )
 
+    if utterance_processing == 'bert':
+        for param in model.bert.parameters():
+            param.requires_grad = False
     model.to(device)
 
     # Initialize DataFrame to store training results
