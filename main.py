@@ -88,28 +88,27 @@ if __name__ == '__main__':
         )
      
     elif settings.model.type == 'cnn':
-        max_len = max(data[0].shape[0] for data in dl_train.dataset)
         model = CNN1DNet(
-            vocab_size=categories['voc_size'],
-            embedding_dim=100,      # TODO: move to the settings
-            kernel_sizes=[3, 4, 5], # TODO: move to the settings
-            num_filters=100,        # TODO: move to the settings
-            dropout=0.5,            # TODO: move to the settings
+            vocab_size=categories['vocab_size'],
+            embedding_dim=settings.model.embedding_dim,
+            kernel_sizes=settings.model.kernel_sizes,
+            num_filters=settings.model.num_filters,
+            dropout=settings.model.dropout,
             labels=settings.data_preprocessing.labels,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
-            nhead=4,                # TODO: move to the settings
-            num_layers=2,
-            max_len=max_len
         )
         logger.info('CNN initiated. \n %s', model)
     elif settings.model.type == 'transformer':
         model = TransformerNet(
-            vocab_size=categories['voc_size'],
-            n_features=256,     # TODO: move to the settings
+            vocab_size=categories['vocab_size'],
+            n_features=dl_train.dataset[0][0].shape[0],
             hidden=settings.model.hidden_size,
+            nhead=settings.model.n_heads,  # TODO: move to the settings
+            num_layers=settings.model.n_layers,
+            max_len=max(data[0].shape[0] for data in dl_train.dataset),
         )
         logger.info('Fully Connected model initiated. \n %s', model)
     elif settings.model.type == 'bert':

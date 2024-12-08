@@ -36,7 +36,13 @@ class DataLoadSettings(BaseSettings):
 class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
     labels: list = Field()                  # Options: 'Emotion', 'Sentiment'
-    utterance_processing: str = Field()     # Options: counts, TF-IDF, word, BPE
+
+    # Text tokenization. Options:
+    # counts - word/n-grams counter,
+    # tf-idf - TD-IDF for words/ngrams,
+    # word - Tokenization by a word
+    # bpe - Byte Pair Encoding Tokenization
+    utterance_processing: str = Field()
     lemmatization: bool = Field()
     ngram: tuple = Field()
     stop_words: str = Field()
@@ -57,7 +63,21 @@ class ModelSettings(BaseSettings):
     # transformer - Transformer based model
     # bert - pretrained BERT model
     type: str = Field()
+
+    # Layer sizes
+    embedding_dim: int = Field()
     hidden_size: int = Field()      # The size of the hidden layer
+
+    # CNN specific
+    kernel_sizes: list = Field()
+    num_filters: int = Field()
+
+    # Transformer specific
+    n_heads: int = Field()
+    n_layers: int = Field()
+
+    # Regularisation
+    dropout: float = Field()
 
 
 class TrainingSettings(BaseSettings):
@@ -79,14 +99,12 @@ class TrainingSettings(BaseSettings):
 class Settings(BaseSettings):
     """Application settings."""
     dev: bool = False
-    config_file: str = 'config.json'
     output_dir: str = Field()
 
     data_load: DataLoadSettings = Field()
     data_preprocessing: DatasetProcessing = Field()
     model: ModelSettings = Field()
     training: TrainingSettings = Field()
-
 
     @property
     def output_dir_path(self) -> Path:
@@ -96,7 +114,7 @@ class Settings(BaseSettings):
     @classmethod
     def load(
         cls,
-        config_path: Path = module_root / '..' / 'config' / 'config.json',
+        config_path: Path = module_root / '..' / 'config' / 'config_cnn.json',
     ):
         """Load the application configuration file."""
         return cls.parse_file(config_path)

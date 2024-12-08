@@ -223,13 +223,13 @@ def meld_processing(
         X_val = count_vect.transform(df_val.loc[:, 'Utterance']).toarray()
         X_test = count_vect.transform(df_test.loc[:, 'Utterance']).toarray()
         categories['utterance'] = count_vect.get_feature_names_out()
-        categories['voc_size'] = len(count_vect.vocabulary_)
+        categories['vocab_size'] = len(count_vect.vocabulary_)
 
         logger.info(
             'Utterance have be transformed using CountVectorizer. '
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
-            categories['voc_size'],
+            categories['vocab_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
         tensor_type = torch.float  
@@ -244,7 +244,7 @@ def meld_processing(
         logger.info('Count values have been normalised.')
 
     # TF-IDF transformation
-    elif utterance_processing == 'TF-IDF':
+    elif utterance_processing == 'tf-idf':
         vectorizer = TfidfVectorizer(
             lowercase=True,
             ngram_range=ngram,
@@ -256,13 +256,13 @@ def meld_processing(
         X_val = vectorizer.transform(df_val.loc[:, 'Utterance']).toarray()
         X_test = vectorizer.transform(df_test.loc[:, 'Utterance']).toarray()
         categories['utterance'] = vectorizer.get_feature_names_out()
-        categories['voc_size'] = len(vectorizer.vocabulary_)
+        categories['vocab_size'] = len(vectorizer.vocabulary_)
 
         logger.info(
             'Utterance have be transformed using TfidfVectorizer.'
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
-            categories['voc_size'],
+            categories['vocab_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
 
@@ -292,21 +292,21 @@ def meld_processing(
             tokens_in_sentence=tokens_in_sentence,
         )
 
-        categories['voc_size'] = word_tokenizer.voc_size
+        categories['vocab_size'] = word_tokenizer.vocab_size
         logger.info('Utterances have been tokenized with Word-Level Tokenizer.')
 
         logger.info(
             'Utterance have be transformed using Word-Level Tokenizer. '
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
-            categories['voc_size'],
+            categories['vocab_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
         
         tensor_type = torch.long
 
     # BPE Tokenization
-    elif utterance_processing == 'BPE':
+    elif utterance_processing == 'bpe':
         logger.info('Utterance will be transformed using Byte Pair Encoding')
         bpe_tokenizer = TokenizerBPE(
             vocab_size=50000,
@@ -335,13 +335,13 @@ def meld_processing(
             tokens_in_sentence=tokens_in_sentence,
         )
 
-        categories['voc_size'] = bpe_tokenizer.voc_size
+        categories['vocab_size'] = bpe_tokenizer.voc_size
 
         logger.info(
             'Utterance have be transformed using Byte Pair Encoding. '
             'Vocabulary size: %d. '
             'Train shape: %s. Val shape: %s. Test shape: %s',
-            categories['voc_size'],
+            categories['vocab_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
         
