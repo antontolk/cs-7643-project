@@ -54,7 +54,8 @@ class ModelSettings(BaseSettings):
     # Model type. Options:
     # fc - Fully Connected
     # cnn - CNN1D
-    # transformer - Transoformer based model
+    # transformer - Transformer based model
+    # bert - pretrained BERT model
     type: str = Field()
     hidden_size: int = Field()      # The size of the hidden layer
 

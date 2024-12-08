@@ -105,6 +105,7 @@ def meld_processing(
     df_val['Sentiment'] = df_val['Sentiment'].map(sentiments)
     df_test['Sentiment'] = df_test['Sentiment'].map(sentiments)
     logger.info('Sentiments categories have been replaced')
+
     ###########################################################################
     # For BERT
     if utterance_processing == 'bert':
@@ -154,7 +155,6 @@ def meld_processing(
         logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
             f"Val shape: {val_seq.shape}, {val_mask.shape}; "
             f"Test shape: {test_seq.shape}, {test_mask.shape}")
-        
 
     ###########################################################################
     # Remove punctuations and signs
@@ -223,10 +223,13 @@ def meld_processing(
         X_val = count_vect.transform(df_val.loc[:, 'Utterance']).toarray()
         X_test = count_vect.transform(df_test.loc[:, 'Utterance']).toarray()
         categories['utterance'] = count_vect.get_feature_names_out()
+        categories['voc_size'] = len(count_vect.vocabulary_)
+
         logger.info(
             'Utterance have be transformed using CountVectorizer. '
-            'Vocabulary size: %d. Train %s. Val: %s. Test: %s',
-            len(count_vect.vocabulary_),
+            'Vocabulary size: %d. '
+            'Train shape: %s. Val shape: %s. Test shape: %s',
+            categories['voc_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
         tensor_type = torch.float  
@@ -253,10 +256,13 @@ def meld_processing(
         X_val = vectorizer.transform(df_val.loc[:, 'Utterance']).toarray()
         X_test = vectorizer.transform(df_test.loc[:, 'Utterance']).toarray()
         categories['utterance'] = vectorizer.get_feature_names_out()
+        categories['voc_size'] = len(vectorizer.vocabulary_)
+
         logger.info(
             'Utterance have be transformed using TfidfVectorizer.'
-            'Vocabulary size: %d. Train %s.Val: %s. Test: %s',
-            len(vectorizer.vocabulary_),
+            'Vocabulary size: %d. '
+            'Train shape: %s. Val shape: %s. Test shape: %s',
+            categories['voc_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
 
@@ -285,7 +291,17 @@ def meld_processing(
             df_test['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
+
+        categories['voc_size'] = word_tokenizer.voc_size
         logger.info('Utterances have been tokenized with Word-Level Tokenizer.')
+
+        logger.info(
+            'Utterance have be transformed using Word-Level Tokenizer. '
+            'Vocabulary size: %d. '
+            'Train shape: %s. Val shape: %s. Test shape: %s',
+            categories['voc_size'],
+            X_train.shape, X_val.shape, X_test.shape,
+        )
         
         tensor_type = torch.long
 
@@ -318,9 +334,14 @@ def meld_processing(
             df_test['Utterance'],
             tokens_in_sentence=tokens_in_sentence,
         )
+
+        categories['voc_size'] = bpe_tokenizer.voc_size
+
         logger.info(
-            'Utterance have be transformed using Byte Pair Encoding. Train %s.'
-            'Val: %s. Test: %s',
+            'Utterance have be transformed using Byte Pair Encoding. '
+            'Vocabulary size: %d. '
+            'Train shape: %s. Val shape: %s. Test shape: %s',
+            categories['voc_size'],
             X_train.shape, X_val.shape, X_test.shape,
         )
         
@@ -394,27 +415,22 @@ def meld_processing(
     ######################################################################
     # Convert NumPy arrays to PyTorch tensors
     logger.info('NumPy arrays is being converted to PyTorch tensors')
-    logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
-            f"train label shape: {y_train.shape}")
 
-    
-    X_train = torch.from_numpy(X_train).type(tensor_type)
-    X_val = torch.from_numpy(X_val).type(tensor_type)
-    X_test = torch.from_numpy(X_test).type(tensor_type)
-    
     y_train = torch.from_numpy(y_train).long()
     y_val = torch.from_numpy(y_val).long()
     y_test = torch.from_numpy(y_test).long()
     
     if utterance_processing == 'bert':
+        logger.info(f"Train shape: {train_seq.shape}, {train_mask.shape}; "
+                    f"train label shape: {y_train.shape}")
         assert train_seq.size(0) == train_mask.size(0) == y_train.size(0), "Mismatch in tensor sizes!"
         train_data = TensorDataset(train_seq, train_mask, y_train)
         val_data = TensorDataset(val_seq, val_mask, y_val)
         test_data = TensorDataset(test_seq, test_mask, y_test)
     else:
-        X_train = torch.from_numpy(X_train).float()
-        X_val = torch.from_numpy(X_val).float()
-        X_test = torch.from_numpy(X_test).float()
+        X_train = torch.from_numpy(X_train).type(tensor_type)
+        X_val = torch.from_numpy(X_val).type(tensor_type)
+        X_test = torch.from_numpy(X_test).type(tensor_type)
 
         logger.info(
             'NumPy arrays have been converted to PyTorch tensors. X_train: %s.'
@@ -424,7 +440,7 @@ def meld_processing(
             X_test.size(), y_test.size(),
         )
 
-    # Place Tensors to Dataset
+    # Place Tensors to Dataset/DataLoader
     logger.info('Tensors is being placed to DataLoaders')
     if utterance_processing == 'bert':
         ds_train = DataLoader(train_data, shuffle=shuffle, batch_size=batch_size)
