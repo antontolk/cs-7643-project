@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 from app import module_root
@@ -7,52 +8,54 @@ from app import module_root
 
 class DataLoadSettings(BaseSettings):
     """Data Load settings."""
-    dataset_folder: str = 'dataset'
-    MELD_dataset: str = 'MELD'
-    MELD_train_filename: str = 'train_sent_emo.csv'
-    MELD_val_filename: str = 'dev_sent_emo.csv'
-    MELD_test_filename: str = 'test_sent_emo.csv'
+    dataset_folder: str = Field()
+    dataset: str = Field()
+    train_filename: str = Field()
+    val_filename: str = Field()
+    test_filename: str = Field()
 
     @property
-    def meld_train(self) -> Path:
+    def train(self) -> Path:
         """Returns a path to the MELD train dataset"""
-        return module_root / '..' / self.dataset_folder / self.MELD_dataset / \
-            self.MELD_train_filename
+        return module_root / '..' / self.dataset_folder / self.dataset / \
+            self.train_filename
 
     @property
-    def meld_val(self) -> Path:
+    def val(self) -> Path:
         """Returns a path to the MELD val dataset"""
-        return module_root / '..' / self.dataset_folder / self.MELD_dataset / \
-            self.MELD_val_filename
+        return module_root / '..' / self.dataset_folder / self.dataset / \
+            self.val_filename
 
     @property
-    def meld_test(self) -> Path:
+    def test(self) -> Path:
         """Returns a path to the MELD test dataset"""
-        return module_root / '..' / self.dataset_folder / self.MELD_dataset / \
-            self.MELD_test_filename
+        return module_root / '..' / self.dataset_folder / self.dataset / \
+            self.test_filename
 
 
 class DatasetProcessing(BaseSettings):
     """Dataset Processing Settings"""
-    labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
-    utterance_processing: str = 'counts'     # Options: counts, TF-IDF, word, BPE
-    lemmatization: bool = True
-    ngram: tuple = (1, 5)
-    stop_words: str = 'english'
-    remove_punc_signs: bool = False          # Remove punctuation, signs
-    strip: bool = True
-    tokens_in_sentence: int = 30            # The size of the sentence (BPE, Word only)
-    encode_speakers: bool = True            # Will add speakers to samples
-    top_n_speakers: int = 10                # Only Top N speakers will be considered
-    batch_size: int = 64
-    shuffle: bool = True
+    labels: list = Field()                  # Options: 'Emotion', 'Sentiment'
+    utterance_processing: str = Field()     # Options: counts, TF-IDF, word, BPE
+    lemmatization: bool = Field()
+    ngram: tuple = Field()
+    stop_words: str = Field()
+    remove_punc_signs: bool = Field()       # Remove punctuation, signs
+    strip: bool = Field()
+    tokens_in_sentence: int = Field()       # The size of the sentence (BPE, Word only)
+    encode_speakers: bool = Field()         # Will add speakers to samples
+    top_n_speakers: int = Field()           # Only Top N speakers will be considered
+    batch_size: int = Field()
+    shuffle: bool = Field()
 
 
 class ModelSettings(BaseSettings):
     """The Deep Learning Configuration"""
-    type: str = 'fc'        # fc - Fully Connected                  # cnn - CNN 1D
-    hidden_size: int = 4096      # The size of the hidden layer
-      
+    # Model type. Options:
+    # fc - Fully Connected
+    # cnn - CNN1D
+    type: str = Field()
+    hidden_size: int = Field()      # The size of the hidden layer
 
 
 class TrainingSettings(BaseSettings):
@@ -60,32 +63,38 @@ class TrainingSettings(BaseSettings):
     epochs: int = 30
     lr: float = 0.001
     weight_decay: float = 1e-2
+
+    # Criterion type. Options:
     # ce - Cross Entropy, 'wce' - Weighted Cross Entropy,
     # 'focal' - Focal Loss, 'label_smoothing' - Label Smoothing Loss
     criterion_type: str = 'wce'
-    labels: list = ['Emotion', 'Sentiment']  # Options: 'Emotion', 'Sentiment'
 
-class BertTrainingSettings(BaseSettings):
-    """The Training Settings"""
-    epochs: int = 10
-    lr: float = 0.001
-    criterion_type: str = 'ce'  # ce - Cross Entropy
-    optimiser_val: str ='AdamW'
+    # Optimizer type. Options:
+    # AdamW
+    optimiser: str = Field()
 
 
 class Settings(BaseSettings):
     """Application settings."""
     dev: bool = False
-    output_dir: str = 'results'
+    config_file: str = 'config.json'
+    output_dir: str = Field()
 
-    data_load: DataLoadSettings = DataLoadSettings()
-    data_preprocessing: DatasetProcessing = DatasetProcessing()
-    model: ModelSettings = ModelSettings()
-    training: TrainingSettings = TrainingSettings()
-    bert_training: BertTrainingSettings = BertTrainingSettings()
+    data_load: DataLoadSettings = Field()
+    data_preprocessing: DatasetProcessing = Field()
+    model: ModelSettings = Field()
+    training: TrainingSettings = Field()
 
 
     @property
     def output_dir_path(self) -> Path:
         """Returns a path to the output folder"""
         return module_root / '..' / self.output_dir
+
+    @classmethod
+    def load(
+        cls,
+        config_path: Path = module_root / '..' / 'config' / 'config.json',
+    ):
+        """Load the application configuration file."""
+        return cls.parse_file(config_path)

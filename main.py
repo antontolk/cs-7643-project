@@ -7,9 +7,6 @@ from app.bert_training import bert_model_training
 from app.bert_model import BERT_Arch
 from transformers import AutoModel, BertTokenizerFast
 
-from app.tokenizer_word import TokenizerWord
-
-
 from app.dataset_preprocessing import meld_processing
 from app.training import model_training
 from app.model_fc import FullyConnectedNet
@@ -52,18 +49,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Sentiment Analysis')
     parser.add_argument('-t','--type', help='Choose the model, fc and bert are only supported options', required=False)
     args = vars(parser.parse_args())
+
     # Load settings
-    settings = Settings()
-    if args['type'] is not None:
-        settings.model.type = args['type']
+    settings = Settings.load()
 
     # Load dataset
     df_train, df_val, df_test = load_dataset(
-            train_path=settings.data_load.meld_train,
-            val_path=settings.data_load.meld_val,
-            test_path=settings.data_load.meld_test,
-            dataset='MELD',
-    )
+            train_path=settings.data_load.train,
+            val_path=settings.data_load.val,
+            test_path=settings.data_load.test,
+            dataset=settings.data_load.dataset,
+        )
+
+    if args['type'] is not None:
+        settings.model.type = args['type']
 
     # Data preprocessing
     dl_train, dl_val, dl_test, categories = meld_processing(
@@ -97,7 +96,7 @@ if __name__ == '__main__':
         
     elif settings.model.type == 'cnn':
         model = CNN1DNet(
-            vocab_size=vocab_size,
+            vocab_size=None, # TODO: save to the categories dict during the preprocessing step
             embedding_dim=100,
             kernel_sizes=[3, 4, 5],
             num_filters=100,
@@ -114,41 +113,36 @@ if __name__ == '__main__':
     else:
         raise ValueError('Not supported model type.')
 
+    # Train and visalize FC and CNN models
+    if settings.model.type in ['fc', 'cnn']:
+        # Train the model
+        # TODO: return the trained model
+        df_results, cm = model_training(
+            model=model,
+            dl_train=dl_train,
+            dl_val=dl_val,
+            dl_test=dl_test,
+            epochs=settings.training.epochs,
+            criterion_type=settings.training.criterion_type,
+            lr=settings.training.lr,
+            weight_decay=settings.training.weight_decay,
+            labels=settings.data_preprocessing.labels,
+            n_classes=[
+                len(categories['emotions']),
+                len(categories['sentiments']),
+            ],
+        )
+    
+        visualisation(
+            df=df_results,
+            cm=cm,
+            labels=settings.data_preprocessing.labels,
+            output_dir=settings.output_dir_path,
+        )
+    
+    
+        torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
 
-          
-  # Train and visalize FC and CNN models        
-  if settings.model.type in ['fc', 'cnn']:
-    # Train the model
-    df_results, cm = model_training(
-        model=model,
-        dl_train=dl_train,
-        dl_val=dl_val,
-        dl_test=dl_test,
-        epochs=settings.training.epochs,
-        criterion_type=settings.training.criterion_type,
-        lr=settings.training.lr,
-        weight_decay=settings.training.weight_decay,
-        labels=settings.training.labels,
-        n_classes=[
-            len(categories['emotions']),
-            len(categories['sentiments']),
-        ],
-    )
-    
-    
-    visualisation(
-        df=df_results,
-        cm=cm,
-        labels=settings.training.labels,
-        output_dir=settings.output_dir_path,
-    )
-    
-    
-    torch.save(model, "cnn1d_model.pth") # trained on CUDA gpu device
-    
-    # this is to load on cpu
-    #device = torch.device("cpu")
-    #model.load_state_dict(torch.load("cnn1d_model.pth", map_location=device)) 
-          
-          
-          
+        # this is to load on cpu
+        #device = torch.device("cpu")
+        #model.load_state_dict(torch.load("cnn1d_model.pth", map_location=device))
