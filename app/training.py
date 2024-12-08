@@ -108,6 +108,8 @@ def model_training(
 
     device = 'mps' if torch.mps.is_available() else \
         'cuda' if torch.cuda.is_available() else 'cpu'
+        
+    print(f"Device Type: {device}")
 
     n_emotion_classes = n_classes[labels.index('Emotion')]
     n_sentiment_classes = n_classes[labels.index('Sentiment')]
