@@ -1,20 +1,20 @@
 import logging
 
+import argparse
 import torch
-
-from app.data_load import load_dataset
-from app.bert_training import bert_model_training
-from app.bert_model import BERT_Arch
 from transformers import AutoModel, BertTokenizerFast
 
+from app.data_load import load_dataset
 from app.dataset_preprocessing import meld_processing
-from app.training import model_training
+from app.bert_training import bert_model_training
+from app.bert_model import BERT_Arch
 from app.model_fc import FullyConnectedNet
 from app.model_cnn import CNN1DNet
+from app.model_transformer import TransformerNet
+from app.training import model_training
 from app.settings import Settings
 from app.visualisation import visualisation
 from app.logging_config import logger_config
-import argparse
 
 logger = logging.getLogger(__name__)
 logger_config(logger)
@@ -79,8 +79,19 @@ if __name__ == '__main__':
         tokens_in_sentence=settings.data_preprocessing.tokens_in_sentence,
         encode_speakers=settings.data_preprocessing.encode_speakers,
         top_n_speakers=settings.data_preprocessing.top_n_speakers,
+        batch_size=settings.data_preprocessing.batch_size
     )
 
+
+    
+    word_tokenizer.fit(df_train['Utterance'])
+    
+    # TODO: move to the preprocessing step and save to the categories dict file
+    vocab_size = word_tokenizer.vocab_size
+
+    max_len = max(data[0].shape[0] for data in dl_train.dataset)
+    
+    
     # Create the model
     if settings.model.type == 'fc':
         model = FullyConnectedNet(
@@ -92,24 +103,35 @@ if __name__ == '__main__':
                 len(categories['sentiments']),
             ],
         )
-        logger.info('Fully Connected model initiated. \n %s', model)
-        
+     
     elif settings.model.type == 'cnn':
         model = CNN1DNet(
-            vocab_size=None, # TODO: save to the categories dict during the preprocessing step
-            embedding_dim=100,
-            kernel_sizes=[3, 4, 5],
-            num_filters=100,
-            dropout=0.5,
+            vocab_size=None,        # TODO: save to the categories dict during the preprocessing step
+            embedding_dim=100,      # TODO: move to the settings
+            kernel_sizes=[3, 4, 5], # TODO: move to the settings
+            num_filters=100,        # TODO: move to the settings
+            dropout=0.5,            # TODO: move to the settings
             labels=settings.data_preprocessing.labels,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
+            nhead=4,                # TODO: move to the settings
+            num_layers=2,
+            max_len=max_len
         )
         logger.info('CNN initiated. \n %s', model)
+    elif settings.model.type == 'transformer':
+        model = TransformerNet(
+            vocab_size=vocab_size,
+            n_features=256,     # TODO: move to the settings
+            hidden=settings.model.hidden_size,
+        logger.info('Fully Connected model initiated. \n %s', model)
     elif settings.model.type == 'bert':
-        BertModelTrainer().train_bert_model(settings, dl_train, dl_val, dl_test, categories)
+        # TODO: BERT model init
+        
+        # TODO: Created unified training procedure
+        BertModelTrainer().train_bert_model(settings, dl_train, dl_val, dl_test, categories) 
     else:
         raise ValueError('Not supported model type.')
 

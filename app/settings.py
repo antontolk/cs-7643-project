@@ -54,20 +54,21 @@ class ModelSettings(BaseSettings):
     # Model type. Options:
     # fc - Fully Connected
     # cnn - CNN1D
+    # transformer - Transoformer based model
     type: str = Field()
     hidden_size: int = Field()      # The size of the hidden layer
 
 
 class TrainingSettings(BaseSettings):
     """The Training Settings"""
-    epochs: int = 30
-    lr: float = 0.001
-    weight_decay: float = 1e-2
+    epochs: int = Field()
+    lr: float = Field()
+    weight_decay: float = Field()
 
     # Criterion type. Options:
     # ce - Cross Entropy, 'wce' - Weighted Cross Entropy,
     # 'focal' - Focal Loss, 'label_smoothing' - Label Smoothing Loss
-    criterion_type: str = 'wce'
+    criterion_type: str = Field()
 
     # Optimizer type. Options:
     # AdamW
