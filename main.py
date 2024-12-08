@@ -80,13 +80,13 @@ if __name__ == '__main__':
         model = FullyConnectedNet(
             n_features=dl_train.dataset[0][0].shape[0] + dl_train.dataset[0][1].shape[0],
             labels=settings.data_preprocessing.labels,
-            hidden=settings.model.hidden_size,
+            hidden_size=settings.model.hidden_size,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
-            dropout_rate=settings.model.dropout,
-            use_batch_norm=settings.model,
+            dropout_rate=settings.model.dropout_rate,
+            use_batch_norm=settings.model.batch_norm,
         )
      
     elif settings.model.type == 'cnn':
@@ -95,12 +95,15 @@ if __name__ == '__main__':
             embedding_dim=settings.model.embedding_dim,
             kernel_sizes=settings.model.kernel_sizes,
             num_filters=settings.model.num_filters,
-            dropout=settings.model.dropout,
+            dropout_rate=settings.model.dropout_rate,
             labels=settings.data_preprocessing.labels,
             n_classes=[
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
+            n_speakers=settings.data_preprocessing.top_n_speakers + 1,
+            hidden_size=settings.model.hidden_size,
+            use_batch_norm=settings.model.batch_norm,
         )
         logger.info('CNN initiated. \n %s', model)
     elif settings.model.type == 'transformer':
@@ -108,7 +111,7 @@ if __name__ == '__main__':
             vocab_size=categories['vocab_size'],
             n_features=dl_train.dataset[0][0].shape[0],
             hidden=settings.model.hidden_size,
-            nhead=settings.model.n_heads,  # TODO: move to the settings
+            nhead=settings.model.n_heads,
             num_layers=settings.model.n_layers,
             max_len=max(data[0].shape[0] for data in dl_train.dataset),
         )

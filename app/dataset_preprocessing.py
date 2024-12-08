@@ -281,8 +281,9 @@ def meld_processing(
             X_val_utterance.shape,
             X_test_utterance.shape,
         )
+        tensor_type = torch.float
 
-    # Tokenization by Word
+        # Tokenization by Word
     elif utterance_processing == 'word':
         logger.info('Utterances will be tokenized using Word-Level Tokenizer.')
         
@@ -434,13 +435,13 @@ def meld_processing(
 
     # Speakers
     if encode_speakers:
-        X_train_speaker = torch.from_numpy(X_train_speaker).type(tensor_type)
-        X_val_speaker = torch.from_numpy(X_val_speaker).type(tensor_type)
-        X_test_speaker = torch.from_numpy(X_test_speaker).type(tensor_type)
+        X_train_speaker = torch.from_numpy(X_train_speaker).type(torch.float)
+        X_val_speaker = torch.from_numpy(X_val_speaker).type(torch.float)
+        X_test_speaker = torch.from_numpy(X_test_speaker).type(torch.float)
     else:
-        X_train_speaker = torch.empty(0).type(tensor_type)
-        X_val_speaker = torch.empty(0).type(tensor_type)
-        X_test_speaker = torch.empty(0).type(tensor_type)
+        X_train_speaker = torch.empty(0).type(torch.float)
+        X_val_speaker = torch.empty(0).type(torch.float)
+        X_test_speaker = torch.empty(0).type(torch.float)
 
     # Labels
     y_train = torch.from_numpy(y_train).long()

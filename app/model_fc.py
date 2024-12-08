@@ -7,7 +7,7 @@ class FullyConnectedNet(nn.Module):
     def __init__(
             self,
             n_features: int,
-            hidden: int,
+            hidden_size: int,
             labels: list,
             n_classes: list,
             dropout_rate: float,
@@ -16,8 +16,8 @@ class FullyConnectedNet(nn.Module):
         """
         :param n_features: the number of features
         :type n_features: int
-        :param hidden: the hidden size
-        :type hidden: int
+        :param hidden_size: the hidden size
+        :type hidden_size: int
         :param labels: Labels to be classified
         :param n_classes: the number of classes for each label
         :type n_classes: list
@@ -33,34 +33,34 @@ class FullyConnectedNet(nn.Module):
         self.n_classes = n_classes
 
         # Input
-        input_layers = [nn.Linear(n_features, hidden)]
+        input_layers = [nn.Linear(n_features, hidden_size)]
         if use_batch_norm:
-            input_layers.append(nn.BatchNorm1d(hidden))
+            input_layers.append(nn.BatchNorm1d(hidden_size))
         input_layers.append(nn.ReLU())
         input_layers.append(nn.Dropout(dropout_rate))
         self.linear_input = nn.Sequential(*input_layers)
 
         # Output: Emotion head
         if 'Emotion' in labels:
-            emotion_layers = [nn.Linear(hidden, hidden)]
+            emotion_layers = [nn.Linear(hidden_size, hidden_size)]
             if use_batch_norm:
-                emotion_layers.append(nn.BatchNorm1d(hidden))
+                emotion_layers.append(nn.BatchNorm1d(hidden_size))
             emotion_layers.append(nn.ReLU())
             emotion_layers.append(nn.Dropout(dropout_rate))
             emotion_layers.append(nn.Linear(
-                hidden,
+                hidden_size,
                 n_classes[labels.index('Emotion')],
             ))
             self.emotion_head = nn.Sequential(*emotion_layers)
 
         # Output: Sentiments head
         if 'Sentiment' in labels:
-            sentiment_layers = [nn.Linear(hidden, hidden)]
+            sentiment_layers = [nn.Linear(hidden_size, hidden_size)]
             if use_batch_norm:
-                sentiment_layers.append(nn.BatchNorm1d(hidden))
+                sentiment_layers.append(nn.BatchNorm1d(hidden_size))
             sentiment_layers.append(nn.ReLU())
             sentiment_layers.append(nn.Dropout(dropout_rate))
-            sentiment_layers.append(nn.Linear(hidden, n_classes[labels.index('Sentiment')]))
+            sentiment_layers.append(nn.Linear(hidden_size, n_classes[labels.index('Sentiment')]))
             self.sentiment_head = nn.Sequential(*sentiment_layers)
 
     def forward(self, x_utterance, x_speaker):
@@ -76,4 +76,3 @@ class FullyConnectedNet(nn.Module):
             if hasattr(self, 'sentiment_head') else None
 
         return out_emotion, out_sentiment
-

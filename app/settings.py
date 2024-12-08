@@ -70,14 +70,14 @@ class ModelSettings(BaseSettings):
 
     # CNN specific
     kernel_sizes: list = Field()
-    num_filters: int = Field()
+    num_filters: list = Field()
 
     # Transformer specific
     n_heads: int = Field()
     n_layers: int = Field()
 
     # Regularisation
-    dropout: float = Field()
+    dropout_rate: float = Field()
     batch_norm: bool = Field()
 
 
@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     @classmethod
     def load(
         cls,
-        config_path: Path = module_root / '..' / 'config' / 'config_fc.json',
+        config_path: Path = module_root / '..' / 'config' / 'config_cnn.json',
     ):
         """Load the application configuration file."""
         return cls.parse_file(config_path)
