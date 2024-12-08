@@ -1,9 +1,5 @@
 import logging
 
-import argparse
-import torch
-from transformers import AutoModel, BertTokenizerFast
-
 from app.data_load import load_dataset
 from app.dataset_preprocessing import meld_processing
 from app.bert_model import BertlNet
