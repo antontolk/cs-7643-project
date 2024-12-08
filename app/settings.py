@@ -78,6 +78,7 @@ class ModelSettings(BaseSettings):
 
     # Regularisation
     dropout: float = Field()
+    batch_norm: bool = Field()
 
 
 class TrainingSettings(BaseSettings):

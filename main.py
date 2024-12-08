@@ -85,6 +85,8 @@ if __name__ == '__main__':
                 len(categories['emotions']),
                 len(categories['sentiments']),
             ],
+            dropout_rate=settings.model.dropout,
+            use_batch_norm=settings.model,
         )
      
     elif settings.model.type == 'cnn':

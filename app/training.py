@@ -81,7 +81,7 @@ def model_training(
         alpha: float = 1.0,
         gamma: float = 2.0,
         smoothing: float = 0.1,
-) -> tuple[pd.DataFrame, dict]:
+) -> tuple[pd.DataFrame, dict, nn.Module]:
     """
     The model training.
 
@@ -103,7 +103,7 @@ def model_training(
     :param gamma: gamma parameter for Focal Loss (default: 2.0)
     :param smoothing: smoothing parameter for Label Smoothing Loss (default: 0.1)
 
-    :return: training results and confusion matrices
+    :return: training results, confusion matrices, and the best model.
     """
 
     device = 'mps' if torch.mps.is_available() else \
@@ -163,6 +163,11 @@ def model_training(
 
     # Initialize DataFrame to store training results
     df = pd.DataFrame()
+
+    # Variables to track the best model
+    best_val_loss = float('inf')
+    best_model_state = None
+    best_epoch = None
 
     for epoch in range(epochs):
         #######################################################################
@@ -476,6 +481,26 @@ def model_training(
         })
         df = pd.concat([df, df_train, df_val])
 
+        # Update the best model
+        if epoch_val_loss < best_val_loss:
+            best_val_loss = epoch_val_loss
+            best_epoch = epoch
+            best_model_state = model.state_dict()
+            logger.info(
+                'Epoch %d: New best model found with validation loss %.4f',
+                epoch + 1, best_val_loss,
+            )
+
+    ###########################################################################
+    # Load the best model
+    logger.info('The best model is being loaded.')
+
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        logger.info('The best model has been loaded')
+    else:
+        logger.warning('No improvement observed during the training')
+
     ###########################################################################
     # Test loop
     model.eval()
@@ -610,7 +635,7 @@ def model_training(
     )
 
     df_test = pd.DataFrame({
-        'epoch': [epochs],
+        'epoch': [best_epoch],
         'type': ['test'],
         'loss': [epoch_test_loss],
         'emotion_accuracy': [epoch_test_emotion_accuracy],
@@ -632,4 +657,4 @@ def model_training(
         'sentiment': test_sentiment_cm.compute().cpu().numpy(),
     }
 
-    return df, cm
+    return df.reset_index(drop=True), cm, model
