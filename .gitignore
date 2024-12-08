@@ -3,6 +3,8 @@ results
 
 # Files
 *.csv
+*.pth
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

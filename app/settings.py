@@ -69,6 +69,10 @@ class TrainingSettings(BaseSettings):
     # 'focal' - Focal Loss, 'label_smoothing' - Label Smoothing Loss
     criterion_type: str = 'wce'
 
+    # Optimizer type. Options:
+    # AdamW
+    optimiser: str = Field()
+
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -80,6 +84,7 @@ class Settings(BaseSettings):
     data_preprocessing: DatasetProcessing = Field()
     model: ModelSettings = Field()
     training: TrainingSettings = Field()
+
 
     @property
     def output_dir_path(self) -> Path:
