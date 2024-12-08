@@ -3,10 +3,6 @@ import logging
 
 from app.data_load import load_dataset
 
-from app.dataset_preprocessing import meld_processing
-from app.training import model_training
-from app.model_fc import FullyConnectedNet
-from app.tokenizer_bpe import TokenizerBPE
 from app.tokenizer_word import TokenizerWord
 
 
@@ -22,14 +18,14 @@ logger_config(logger)
 
 if __name__ == '__main__':
     # Load settings
-    settings = Settings()
+    settings = Settings.load()
 
     # Load dataset
     df_train, df_val, df_test = load_dataset(
-            train_path=settings.data_load.meld_train,
-            val_path=settings.data_load.meld_val,
-            test_path=settings.data_load.meld_test,
-            dataset='MELD',
+            train_path=settings.data_load.train,
+            val_path=settings.data_load.val,
+            test_path=settings.data_load.test,
+            dataset=settings.data_load.dataset,
         )
 
     # Data preprocessing
@@ -83,7 +79,7 @@ if __name__ == '__main__':
         criterion_type=settings.training.criterion_type,
         lr=settings.training.lr,
         weight_decay=settings.training.weight_decay,
-        labels=settings.training.labels,
+        labels=settings.data_preprocessing.labels,
         n_classes=[
             len(categories['emotions']),
             len(categories['sentiments']),
@@ -93,7 +89,7 @@ if __name__ == '__main__':
     visualisation(
         df=df_results,
         cm=cm,
-        labels=settings.training.labels,
+        labels=settings.data_preprocessing.labels,
         output_dir=settings.output_dir_path,
     )
 
