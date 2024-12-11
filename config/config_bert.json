@@ -1,0 +1,43 @@
+{
+  "output_dir": "results_bert",
+  "data_load": {
+    "dataset_folder": "dataset",
+    "dataset": "MELD",
+    "train_filename": "train_sent_emo.csv",
+    "val_filename": "dev_sent_emo.csv",
+    "test_filename": "test_sent_emo.csv"
+  },
+  "data_preprocessing": {
+    "labels": ["Emotion", "Sentiment"],
+    "utterance_processing": "bert",
+    "lemmatization": false,
+    "ngram": [1, 5],
+    "stop_words": "english",
+    "remove_punc_signs": false,
+    "strip": true,
+    "tokens_in_sentence": 30,
+    "encode_speakers": true,
+    "top_n_speakers": 10,
+    "batch_size": 64,
+    "shuffle": true,
+    "bert_model_name": "bert-base-cased"
+  },
+  "model": {
+    "type": "bert",
+    "hidden_size": 512,
+    "embedding_dim": 300,
+    "kernel_sizes": [3, 3, 3],
+    "num_filters": [100, 200, 300],
+    "n_heads": 4,
+    "n_layers": 2,
+    "dropout_rate": 0.0,
+    "batch_norm": true
+  },
+  "training": {
+    "epochs": 100,
+    "lr": 0.001,
+    "weight_decay": 0.0,
+    "criterion_type": "label_smoothing",
+    "optimiser": "AdamW"
+  }
+}

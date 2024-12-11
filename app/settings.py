@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     @classmethod
     def load(
         cls,
-        config_path: Path = module_root / '..' / 'config' / 'config_bert.json',
+        config_path: Path = module_root / '..' / 'config' / 'config_fc.json',
     ):
         """Load the application configuration file."""
         return cls.parse_file(config_path)

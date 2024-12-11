@@ -105,7 +105,6 @@ if __name__ == '__main__':
     else:
         raise ValueError('Not supported model type.')
 
-
     df_results, cm, best_model = model_training(
         model=model,
         dl_train=dl_train,
